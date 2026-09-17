@@ -1,0 +1,32 @@
+# --- Java / Maven ---
+target/
+.flattened-pom.xml
+*.class
+*.jar
+
+# Quarkus
+.quarkus/
+*.log
+
+# --- Node / frontend ---
+node_modules/
+dist/
+coverage/
+
+# --- Terraform / Ansible ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+infra/ansible/inventory.ini
+
+# --- Local env ---
+.env
+.env.local
+.env.*.local
+
+# --- IDE / OS ---
+.idea/
+*.iml
+.vscode/
+.DS_Store

@@ -1,93 +1,100 @@
-# g2
+# g2 — AI-powered Movie Recommendation Hub
 
+PSIA 2026/27 project, group 2.
 
+> **Status: skeleton.** The services return hardcoded values. No database, no
+> inference engine, no frontend, no deployment. See *Current state* below.
 
-## Getting started
+Users register, create a profile describing their interests, and ask the
+platform's AI for movie recommendations matching that profile. Users can browse
+other users' profiles. A background agent proactively generates and caches
+recommendations so they are ready at login.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Structure
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.rnl.tecnico.ulisboa.pt/psia/groups26/g2.git
-git branch -M master
-git push -uf origin master
+app/                Maven reactor (Java 21, Quarkus 3.39.4)
+  services/users/     accounts, login, profiles          → users_db
+  services/movies/    movie catalog                      → movies_db
+  services/recommendations/  AI recommendations + cache  → recs_db
+  edge/               aggregates services for the UI (no database)
+frontend/web/       web UI — framework not chosen yet         (empty)
+infra/terraform/    VMs for the cluster                       (empty)
+infra/ansible/      installs software/configs onto those VMs  (empty)
+deploy/             Kubernetes manifests, monitoring          (empty)
 ```
 
-## Integrate with your tools
+Each microservice owns a dedicated database instance. `edge` is
+the backend-for-frontend: an aggregator rather than a domain service, so it has
+no database.
 
-- [ ] [Set up project integrations](https://gitlab.rnl.tecnico.ulisboa.pt/psia/groups26/g2/-/settings/integrations)
+groupId `pt.ulisboa.tecnico.psia.g2` · version via `${revision}`
 
-## Collaborate with your team
+## Build
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+```sh
+cd app
+mvn clean install                     # whole reactor
+mvn -pl services/users clean install  # one module on its own
+```
 
-## Test and Deploy
+The four modules are independent no shared module, so no `-am` needed.
 
-Use the built-in continuous integration in GitLab.
+## Run locally (dev mode)
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+Dev ports are distinct so everything can run at once:
 
-***
+```sh
+cd app/services/users           && mvn quarkus:dev   # :8081
+cd app/services/movies          && mvn quarkus:dev   # :8082
+cd app/services/recommendations && mvn quarkus:dev   # :8083
+cd app/edge                     && mvn quarkus:dev   # :8080
+```
 
-# Editing this README
+Only `%dev.quarkus.http.port` differs the packaged/container port is 8080
+everywhere.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+> A Docker container on this machine may already publish `*:8080`, in which case
+> `http://localhost:8080` resolves to it over IPv6 while Quarkus binds
+> `127.0.0.1:8080`. Use `http://127.0.0.1:8080`.
 
-## Suggestions for a good README
+```sh
+curl http://127.0.0.1:8081/users/42
+curl http://127.0.0.1:8082/movies/42
+curl http://127.0.0.1:8083/recommendations/users/42
+curl http://127.0.0.1:8080/screens/profile/42
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+`edge` calls `users` and `recommendations` concurrently via
+`Uni.combine().all().unis(...)`.
 
-## Name
-Choose a self-explaining name for your project.
+The three services expose `/q/health`, `/q/openapi` and `/q/swagger-ui` (the
+last in dev only). `edge` carries neither the health nor the OpenAPI
+extension yet, so it has none of them.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+## Current state
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+Done:
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+- Maven reactor with four Quarkus modules, building and running.
+- `edge` fan-out: both upstreams called concurrently.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+Not started:
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+- Domain logic, persistence (one Postgres per service), registration and login.
+- Inference engine (Ollama) and the background recommendation agent.
+- Web UI — framework undecided.
+- Contract tests. `edge` holds its own copies of the `users` and
+  `recommendations` response records, and nothing catches drift between them: a
+  rename on one side surfaces at runtime as a null field, never at compile time.
+- Resilience on the `edge` clients. No retry, timeout or circuit breaker —
+  an upstream failure propagates straight to the caller.
+- `compose.yaml` for the local container deployment.
+- Terraform + Ansible cluster provisioning, and the app's Kubernetes manifests.
+- Prometheus + Grafana, and the throughput/latency study.
+- GitLab CI + Argo CD.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+## Setup instructions
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+TODO — required by the spec: full instructions for bringing the system up from
+a clean machine, for both the Docker Compose deployment and the Kubernetes one.
