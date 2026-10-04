@@ -40,6 +40,27 @@ mvn -pl services/users clean install  # one module on its own
 
 The four modules are independent no shared module, so no `-am` needed.
 
+## Running tests
+
+```sh
+cd app && mvn verify                   # all modules
+mvn -f app/pom.xml verify              # same, from the repo root
+mvn -f app/pom.xml -pl services/users test -Dtest=RegisterResourceTest   # one class
+```
+
+- A Docker-compatible container engine must be running and
+  reachable from your shell. Check with `docker info` before running the tests.
+- Quarkus Dev Services starts a throwaway Postgres container for the tests (the
+  first run pulls the postgres image and testcontainers/ryuk), so no database
+  has to be started by hand.
+- If Docker is unreachable the build **fails**. There is deliberately no H2
+  fallback and no skipping: H2 would hide Postgres behaviour such as the
+  lowercase `CHECK` constraint on usernames.
+- Tests use a random HTTP port, so `quarkus:dev` instances on 8080-8083 can stay
+  running.
+- The test profile uses bcrypt cost 4 (`%test.users.bcrypt.cost`); production
+  keeps the default of 12.
+
 ## Run locally (dev mode)
 
 Dev ports are distinct so everything can run at once:
