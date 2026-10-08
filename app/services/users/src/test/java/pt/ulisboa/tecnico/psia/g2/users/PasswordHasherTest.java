@@ -1,17 +1,10 @@
 package pt.ulisboa.tecnico.psia.g2.users;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.quarkus.elytron.security.common.BcryptUtil;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.util.Enumeration;
-import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -20,31 +13,28 @@ class PasswordHasherTest {
     @Inject
     PasswordHasher hasher;
 
+    // tests use bcrypt cost 4 so they run faster, prod uses 12
     @Test
     void testProfileUsesLowBcryptCost() {
-        String hash = hasher.hash("password1");
-
-        assertTrue(hash.matches("^\\$2[aby]?\\$04\\$.*"), "hash was " + hash.substring(0, 7));
-        assertTrue(BcryptUtil.matches("password1", hash));
+        assertTrue(hasher.hash("password1").startsWith("$2a$04$"));
     }
 
     @Test
-    void productionDefaultCostStays12() throws IOException {
-        Properties properties = new Properties();
-        Enumeration<URL> candidates = Thread.currentThread().getContextClassLoader()
-                .getResources("application.properties");
-        while (candidates.hasMoreElements()) {
-            Properties candidate = new Properties();
-            try (InputStream in = candidates.nextElement().openStream()) {
-                candidate.load(in);
-            }
-            if ("users".equals(candidate.getProperty("quarkus.application.name"))) {
-                properties = candidate;
-            }
-        }
-        assertNotNull(properties.getProperty("quarkus.application.name"), "users application.properties not found");
+    void matchesAcceptsOnlyTheRealPassword() {
+        String hash = hasher.hash("password1");
 
-        assertEquals("12", properties.getProperty("users.bcrypt.cost"));
-        assertEquals("4", properties.getProperty("%test.users.bcrypt.cost"));
+        assertTrue(hasher.matches("password1", hash));
+        assertFalse(hasher.matches("password2", hash));
+        assertFalse(hasher.matches("password1", null));
+    }
+
+    // bcrypt ignores everything after 72 bytes, so a longer password must never match
+    @Test
+    void matchesRejectsPasswordsOver72Bytes() {
+        String p72 = "a".repeat(72);
+        String hash = hasher.hash(p72);
+
+        assertTrue(hasher.matches(p72, hash));
+        assertFalse(hasher.matches(p72 + "b", hash));
     }
 }

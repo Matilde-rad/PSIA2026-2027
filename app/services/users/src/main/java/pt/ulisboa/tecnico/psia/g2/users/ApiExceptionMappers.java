@@ -4,11 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
+import io.quarkus.security.AuthenticationFailedException;
+import io.quarkus.security.UnauthorizedException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.ElementKind;
 import jakarta.validation.Path;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Arrays;
@@ -74,6 +77,20 @@ public class ApiExceptionMappers {
             }
         }
         return null;
+    }
+
+    @ServerExceptionMapper
+    public Response authenticationFailed(AuthenticationFailedException e) {
+        return json(401, ApiError.of("unauthorized", "authentication required"));
+    }
+
+    @ServerExceptionMapper
+    public Response unauthorized(UnauthorizedException e) {
+        return Response.status(401)
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+                .type(MediaType.APPLICATION_JSON)
+                .entity(ApiError.of("unauthorized", "authentication required"))
+                .build();
     }
 
     @ServerExceptionMapper

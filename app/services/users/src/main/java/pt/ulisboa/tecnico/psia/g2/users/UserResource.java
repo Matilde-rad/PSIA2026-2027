@@ -1,5 +1,8 @@
 package pt.ulisboa.tecnico.psia.g2.users;
 
+import io.quarkus.security.Authenticated;
+import io.quarkus.security.UnauthorizedException;
+import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
@@ -19,10 +22,12 @@ import jakarta.ws.rs.core.UriInfo;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.hibernate.exception.ConstraintViolationException;
 
 @Path("/users")
 @Produces(MediaType.APPLICATION_JSON)
+@Authenticated
 public class UserResource {
 
     private static final String USERNAME_UNIQUE_CONSTRAINT = "users_username_key";
@@ -33,7 +38,11 @@ public class UserResource {
     @Inject
     PasswordHasher passwordHasher;
 
+    @Inject
+    JsonWebToken jwt;
+
     @POST
+    @PermitAll
     @Consumes(MediaType.APPLICATION_JSON)
     @Transactional
     public Response register(@Valid @NotNull RegisterRequest request, @Context UriInfo uriInfo) {
@@ -56,6 +65,24 @@ public class UserResource {
         return Response.created(uriInfo.getAbsolutePathBuilder().path(user.getId().toString()).build())
                 .entity(UserView.from(user))
                 .build();
+    }
+
+    @GET
+    @Path("/me")
+    public UserView me() {
+        String sub = jwt.getSubject();
+        if (sub == null) {
+            throw new UnauthorizedException();
+        }
+        UUID id;
+        try {
+            id = UUID.fromString(sub);
+        } catch (IllegalArgumentException e) {
+            throw new UnauthorizedException();
+        }
+        return users.findByIdOptional(id)
+                .map(UserView::from)
+                .orElseThrow(UnauthorizedException::new);
     }
 
     @GET

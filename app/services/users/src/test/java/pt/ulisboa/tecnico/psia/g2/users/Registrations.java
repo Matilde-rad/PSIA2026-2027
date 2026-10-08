@@ -18,10 +18,6 @@ final class Registrations {
         return "u" + hex().substring(0, 20);
     }
 
-    static String uniqueUsername(int length) {
-        return hex().substring(0, length);
-    }
-
     static Map<String, Object> valid(String username) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("username", username);
@@ -35,6 +31,30 @@ final class Registrations {
             request = request.body(body);
         }
         return request.post("/users");
+    }
+
+    static Response login(Object body) {
+        RequestSpecification request = RestAssured.given().contentType(ContentType.JSON);
+        if (body != null) {
+            request = request.body(body);
+        }
+        return request.post("/auth/login");
+    }
+
+    static Response login(String username, String password) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("username", username);
+        body.put("password", password);
+        return login(body);
+    }
+
+    // logs in a user registered with valid(...) and returns the bearer token
+    static String loginToken(String username) {
+        return login(username, "password1")
+                .then()
+                .statusCode(200)
+                .extract()
+                .path("token");
     }
 
     private static String hex() {

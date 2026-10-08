@@ -60,6 +60,26 @@ mvn -f app/pom.xml -pl services/users test -Dtest=RegisterResourceTest   # one c
   running.
 - The test profile uses bcrypt cost 4 (`%test.users.bcrypt.cost`); production
   keeps the default of 12.
+- Tests sign and verify JWTs with the committed test-only key pair in
+  `app/services/users/src/test/resources` (see `TEST-ONLY-KEYS.md` there), so no
+  secrets are needed.
+
+## Auth keys (users)
+
+The `users` service signs login tokens (RS256) with a private key and verifies them
+with the matching public key. Only `users` ever holds the private key.
+
+- **Dev:** run `./app/keys/gen-dev-keys.sh` once before `mvn quarkus:dev` in
+  `app/services/users`. The keys land in `app/keys/dev/`, which is gitignored and
+  outside every module's resources. The script does not overwrite existing keys unless you pass `--force`.
+- **Prod:** set `SMALLRYE_JWT_SIGN_KEY_LOCATION` and
+  `MP_JWT_VERIFY_PUBLICKEY_LOCATION` to files of a mounted secret, for example
+  `file:/etc/jwt/privateKey.pem` and `file:/etc/jwt/publicKey.pem`. There is no
+  fallback to the dev or test keys.
+- **Tests:** the pair in `src/test/resources` is test-only and public.
+- **Before committing**, run `git status` and make sure no `.pem` other than the two
+  `test-*.pem` files appears. `*.pem` and `app/keys/dev/` are gitignored as a safety net.
+- Do not commit token-level debug logging of the JWT validator: it prints token details.
 
 ## Run locally (dev mode)
 
@@ -79,8 +99,24 @@ everywhere.
 > `http://localhost:8080` resolves to it over IPv6 while Quarkus binds
 > `127.0.0.1:8080`. Use `http://127.0.0.1:8080`.
 
+For `users`, register, log in to get a token, then call a protected endpoint with it
+(run `./app/keys/gen-dev-keys.sh` first, see *Auth keys (users)*):
+
 ```sh
-curl http://127.0.0.1:8081/users/42
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"password1"}' http://127.0.0.1:8081/users
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"password1"}' http://127.0.0.1:8081/auth/login   # returns "token"
+TOKEN=<the token from the login response>
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/users/me
+```
+
+Every `users` endpoint except `POST /users` and `POST /auth/login` needs a token.
+Call register and login **without** an `Authorization` header: a stale or invalid
+token sent to them gets a 401. `edge`'s `/screens/profile/{id}` gets a 401 from
+`users` until `edge` forwards the token (Phase 4).
+
+```sh
 curl http://127.0.0.1:8082/movies/42
 curl http://127.0.0.1:8083/recommendations/users/42
 curl http://127.0.0.1:8080/screens/profile/42
@@ -99,10 +135,12 @@ Done:
 
 - Maven reactor with four Quarkus modules, building and running.
 - `edge` fan-out: both upstreams called concurrently.
+- `users`: registration and login (RS256 JWT), `GET /users/me`, every other
+  endpoint denied without a valid token (deny-by-default).
 
 Not started:
 
-- Domain logic, persistence (one Postgres per service), registration and login.
+- Domain logic and persistence for the other services (one Postgres per service).
 - Inference engine (Ollama) and the background recommendation agent.
 - Web UI — framework undecided.
 - Contract tests. `edge` holds its own copies of the `users` and
