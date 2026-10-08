@@ -20,7 +20,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import java.util.Locale;
-import java.util.Set;
 import java.util.UUID;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.hibernate.exception.ConstraintViolationException;
@@ -47,10 +46,8 @@ public class UserResource {
     @Transactional
     public Response register(@Valid @NotNull RegisterRequest request, @Context UriInfo uriInfo) {
         String username = request.username().toLowerCase(Locale.ROOT);   // usernames are case-insensitive
-        String bio = request.bio() != null && !request.bio().isBlank() ? request.bio().strip() : null;
-        Set<Genre> genres = request.favoriteGenres() != null ? request.favoriteGenres() : Set.of();
         String passwordHash = passwordHasher.hash(request.password());
-        User user = new User(username, passwordHash, bio, genres);
+        User user = new User(username, passwordHash);
 
         try {
             users.persist(user);

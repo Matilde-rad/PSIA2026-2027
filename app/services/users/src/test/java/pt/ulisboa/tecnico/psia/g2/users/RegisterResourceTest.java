@@ -1,6 +1,5 @@
 package pt.ulisboa.tecnico.psia.g2.users;
 
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
@@ -15,7 +14,6 @@ import static pt.ulisboa.tecnico.psia.g2.users.Registrations.valid;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -30,18 +28,13 @@ class RegisterResourceTest {
     @Test
     void validRegistrationReturns201WithoutPasswordHash() {
         String name = uniqueUsername();
-        Map<String, Object> body = valid(name.toUpperCase(Locale.ROOT));
-        body.put("bio", "  hello  ");
-        body.put("favoriteGenres", List.of("SCIENCE_FICTION", "ACTION"));
-
-        String id = post(body)
+        String id = post(valid(name.toUpperCase(Locale.ROOT)))
                 .then()
                 .statusCode(201)
                 .header("Location", notNullValue())     // URL of the new user
                 .body("id", notNullValue())
                 .body("username", equalTo(name))        // stored lowercase
-                .body("bio", equalTo("hello"))          // surrounding spaces stripped
-                .body("favoriteGenres", contains("ACTION", "SCIENCE_FICTION"))
+                .body("createdAt", notNullValue())
                 .body("$", not(hasKey("passwordHash")))
                 .extract()
                 .path("id");
@@ -71,9 +64,7 @@ class RegisterResourceTest {
         return Stream.of(
                 Arguments.of("username too short", valid("ab"), "username"),
                 Arguments.of("username bad characters", valid("bad name!"), "username"),
-                Arguments.of("password too short", with(valid("abc"), "password", "1234567"), "password"),
-                Arguments.of("bio over 500 chars", with(valid("abc"), "bio", "x".repeat(501)), "bio"),
-                Arguments.of("unknown genre", with(valid("abc"), "favoriteGenres", List.of("comedy")), "favoriteGenres"));
+                Arguments.of("password too short", with(valid("abc"), "password", "1234567"), "password"));
     }
 
     @Test
