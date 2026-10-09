@@ -55,7 +55,12 @@ public class OllamaWrapper {
                 options,
                 keepAlive);
 
-        OllamaClient.ChatResponse response = client.chat(request);
+        OllamaClient.ChatResponse response;
+        try {
+            response = client.chat(request);
+        } catch (RuntimeException e) {
+            throw new ModelUnavailableException("Ollama call failed", e);
+        }
 
         Log.infof("ollama task=%s done_reason=%s prompt_tokens=%d prompt_ms=%d eval_tokens=%d eval_ms=%d load_ms=%d total_ms=%d",
                 task,
@@ -72,16 +77,16 @@ public class OllamaWrapper {
 
     static <T> T parse(ObjectMapper mapper, OllamaClient.ChatResponse response, Class<T> type) {
         if (response == null || response.message() == null) {
-            throw new ModelOutputException("Ollama returned no message", null);
+            throw new ModelUnavailableException("Ollama returned no message", null);
         }
         if (!"stop".equals(response.doneReason())) {
-            throw new ModelOutputException("Ollama done_reason is " + response.doneReason()
+            throw new ModelUnavailableException("Ollama done_reason is " + response.doneReason()
                     + ", expected stop", null);
         }
         try {
             return mapper.readValue(response.message().content(), type);
         } catch (JsonProcessingException | IllegalArgumentException e) {
-            throw new ModelOutputException("Model content is not valid JSON for " + type.getSimpleName(), e);
+            throw new ModelUnavailableException("Model content is not valid JSON for " + type.getSimpleName(), e);
         }
     }
 
@@ -93,8 +98,8 @@ public class OllamaWrapper {
         return nanos == null ? 0 : nanos / 1_000_000;
     }
 
-    public static class ModelOutputException extends RuntimeException {
-        public ModelOutputException(String message, Throwable cause) {
+    public static class ModelUnavailableException extends RuntimeException {
+        public ModelUnavailableException(String message, Throwable cause) {
             super(message, cause);
         }
     }

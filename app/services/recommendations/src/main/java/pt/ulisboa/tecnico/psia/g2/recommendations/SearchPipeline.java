@@ -1,9 +1,6 @@
 package pt.ulisboa.tecnico.psia.g2.recommendations;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -14,6 +11,12 @@ import pt.ulisboa.tecnico.psia.g2.recommendations.SearchResponse.AppliedFilters;
 
 @ApplicationScoped
 public class SearchPipeline {
+
+    public static class AiUnavailableException extends RuntimeException {
+        public AiUnavailableException(Throwable cause) {
+            super(cause);
+        }
+    }
 
     @Inject
     @RestClient
@@ -30,35 +33,32 @@ public class SearchPipeline {
     int pickCount;
 
     public SearchResponse search(String text) {
-        String request = text == null ? "" : text;
+        try {
+            return run(text == null ? "" : text);
+        } catch (RuntimeException e) {
+            throw new AiUnavailableException(e);
+        }
+    }
 
-        List<String> allowed = movies.genres();
-
-        AiClient.Filters filters = ai.extractFilters(new AiClient.ExtractRequest(request, allowed));
+    private SearchResponse run(String text) {
+        AiClient.Filters filters = ai.extractFilters(new AiClient.ExtractRequest(text, movies.genres()));
         AppliedFilters applied = new AppliedFilters(filters.genres(), filters.yearFrom(), filters.yearTo());
 
-        List<MoviesClient.Candidate> found = movies.candidates(
-                filters.genres(), filters.yearFrom(), filters.yearTo(), candidateCount);
+        List<MoviesClient.Candidate> found =
+                movies.candidates(filters.genres(), filters.yearFrom(), filters.yearTo(), candidateCount);
         if (found.isEmpty()) {
             return new SearchResponse(List.of(), applied);
         }
 
-        List<AiClient.RankCandidate> ranked = found.stream()
+        List<AiClient.RankCandidate> rankCandidates = found.stream()
                 .map(c -> new AiClient.RankCandidate(c.id(), c.title(), c.genres()))
                 .toList();
-        AiClient.RankResponse picks = ai.rank(new AiClient.RankRequest(request, pickCount, ranked));
+        AiClient.RankResponse picks = ai.rank(new AiClient.RankRequest(text, pickCount, rankCandidates));
 
-        Map<String, MoviesClient.Candidate> byId = new LinkedHashMap<>();
-        for (MoviesClient.Candidate c : found) {
-            byId.put(c.id(), c);
-        }
-
-        List<Recommendation> results = new ArrayList<>();
-        for (AiClient.Pick pick : picks.picks()) {
-            MoviesClient.Candidate candidate = byId.get(pick.movieId());
-            if (candidate != null) {
-                results.add(new Recommendation(candidate.id(), candidate.title()));
-            }
+        List<Recommendation> results =
+                picks.picks().stream().map(p -> new Recommendation(p.movieId(), p.title())).toList();
+        if (results.isEmpty()) {
+            throw new AiUnavailableException(null);
         }
         return new SearchResponse(results, applied);
     }

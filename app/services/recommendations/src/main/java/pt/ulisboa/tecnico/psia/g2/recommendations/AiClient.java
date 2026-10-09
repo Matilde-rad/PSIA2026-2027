@@ -38,6 +38,6 @@ public interface AiClient {
     record RankResponse(List<Pick> picks) {
     }
 
-    record Pick(String movieId) {
+    record Pick(String movieId, String title) {
     }
 }

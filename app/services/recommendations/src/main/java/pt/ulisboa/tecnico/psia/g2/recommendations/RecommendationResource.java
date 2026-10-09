@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.psia.g2.recommendations;
 
 import java.util.List;
+import java.util.Map;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -10,6 +11,9 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 
 @Path("/recommendations")
 public class RecommendationResource {
@@ -32,5 +36,11 @@ public class RecommendationResource {
     @Produces(MediaType.APPLICATION_JSON)
     public SearchResponse search(@PathParam("userId") String userId, SearchRequest request) {
         return pipeline.search(request == null ? null : request.text());
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Map<String, String>> aiUnavailable(SearchPipeline.AiUnavailableException e) {
+        return RestResponse.status(Response.Status.SERVICE_UNAVAILABLE,
+                Map.of("error", "ai_unavailable", "message", "AI service down"));
     }
 }

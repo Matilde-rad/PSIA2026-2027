@@ -27,7 +27,7 @@ public class RankCandidates {
     public record Response(List<Pick> picks) {
     }
 
-    public record Pick(String movieId) {
+    public record Pick(String movieId, String title) {
     }
 
     record ModelPicks(List<ModelPick> picks) {
@@ -141,7 +141,8 @@ public class RankCandidates {
             if (pick == null || pick.index() < 1 || pick.index() > candidates.size() || !used.add(pick.index())) {
                 continue;
             }
-            result.add(new Pick(candidates.get(pick.index() - 1).id()));
+            Candidate c = candidates.get(pick.index() - 1);
+            result.add(new Pick(c.id(), c.title()));
         }
         return result;
     }
