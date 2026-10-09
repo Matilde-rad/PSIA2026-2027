@@ -21,13 +21,14 @@ public class RecommendationResource {
     @Inject
     SearchPipeline  pipeline;
 
+    @Inject
+    RecommendationCache cache;
+
     @GET
     @Path("/users/{userId}")
     @Produces(MediaType.APPLICATION_JSON)
     public List<Recommendation> forUser(@PathParam("userId") String userId) {
-        return List.of(
-                new Recommendation("1", "title-1"),
-                new Recommendation("2", "title-2"));
+        return cache.read(userId);
     }
 
     @POST
