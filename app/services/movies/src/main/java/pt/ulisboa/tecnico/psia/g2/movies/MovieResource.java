@@ -15,6 +15,7 @@ public class MovieResource {
 
     static final int DEFAULT_LIMIT = 15;
     static final int MAX_LIMIT = 100;
+    static final int MAX_TITLES = 20;
 
     @Inject
     CatalogRepository catalog;
@@ -39,6 +40,22 @@ public class MovieResource {
                 : genres.stream().filter(g -> g != null && !g.isBlank()).toList();
         int capped = Math.max(1, Math.min(MAX_LIMIT, limit == null ? DEFAULT_LIMIT : limit));
         return catalog.candidates(wanted, yearFrom, yearTo, capped);
+    }
+
+    @GET
+    @Path("/lookup")
+    @Produces(MediaType.APPLICATION_JSON)
+    public List<Candidate> lookup(@QueryParam("titles") List<String> titles) {
+        if (titles == null) {
+            return List.of();
+        }
+        List<String> keys = titles.stream()
+                .map(MovieLensCsv::titleKey)
+                .filter(k -> !k.isEmpty())
+                .distinct()
+                .limit(MAX_TITLES)
+                .toList();
+        return keys.isEmpty() ? List.of() : catalog.lookup(keys);
     }
 
     @GET

@@ -26,7 +26,7 @@ public interface AiClient {
     record ExtractRequest(String text, List<String> allowedGenres) {
     }
 
-    record Filters(List<String> genres, Integer yearFrom, Integer yearTo) {
+    record Filters(List<String> genres, Integer yearFrom, Integer yearTo, List<String> suggestions) {
     }
 
     record RankRequest(String request, int limit, List<RankCandidate> candidates) {

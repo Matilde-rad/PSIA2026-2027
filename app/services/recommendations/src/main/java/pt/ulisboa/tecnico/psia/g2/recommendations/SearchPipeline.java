@@ -1,6 +1,9 @@
 package pt.ulisboa.tecnico.psia.g2.recommendations;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -44,8 +47,16 @@ public class SearchPipeline {
         AiClient.Filters filters = ai.extractFilters(new AiClient.ExtractRequest(text, movies.genres()));
         AppliedFilters applied = new AppliedFilters(filters.genres(), filters.yearFrom(), filters.yearTo());
 
-        List<MoviesClient.Candidate> found =
+        List<MoviesClient.Candidate> suggested = filters.suggestions() == null || filters.suggestions().isEmpty()
+                ? List.of()
+                : movies.lookup(filters.suggestions());
+        List<MoviesClient.Candidate> popular =
                 movies.candidates(filters.genres(), filters.yearFrom(), filters.yearTo(), candidateCount);
+        Set<String> seen = new HashSet<>();
+        List<MoviesClient.Candidate> found = Stream.concat(suggested.stream().filter(c -> fits(c, filters)), popular.stream())
+                .filter(c -> seen.add(c.id()))
+                .limit(candidateCount)
+                .toList();
         if (found.isEmpty()) {
             return new SearchResponse(List.of(), applied);
         }
@@ -61,5 +72,11 @@ public class SearchPipeline {
             throw new AiUnavailableException(null);
         }
         return new SearchResponse(results, applied);
+    }
+
+    private static boolean fits(MoviesClient.Candidate c, AiClient.Filters f) {
+        return (f.genres() == null || f.genres().isEmpty() || f.genres().stream().anyMatch(c.genres()::contains))
+                && (f.yearFrom() == null || (c.year() != null && c.year() >= f.yearFrom()))
+                && (f.yearTo() == null || (c.year() != null && c.year() <= f.yearTo()));
     }
 }

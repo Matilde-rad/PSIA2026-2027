@@ -96,7 +96,7 @@ macOS (Apple M4, 16 GB).
 - Ollama, tested with 0.35.1 and 0.40.0. `brew install ollama`
   currently installs 0.40.2, which was not tested, so run the checks in step 1.
 - Network on first start: Maven dependencies, the `postgres:18` image, the
-  MovieLens zip and the 2.5 GB model.
+  239 MB MovieLens zip and the 2.5 GB model.
 
 ### 1. Ollama and the model
 
@@ -132,9 +132,11 @@ cd app/services/recommendations && mvn quarkus:dev   # :8083, start last
 > next run. Restart `recommendations`, or start it with
 > `RECS_AGENT_EVERY=30s mvn quarkus:dev` for a shorter interval.
 
-> On its first start, `movies` downloads MovieLens `ml-latest-small` into the
-> JVM temp dir, never into the repo, so it is never committed (GroupLens
-> license). It seeds `movies_db` and opens its port only after the seed.
+> On its first start, `movies` downloads MovieLens `ml-32m` (239 MB, 87,585
+> movies, ratings up to October 2023) into the JVM temp dir, never into the
+> repo, so it is never committed (GroupLens license). Later starts reuse the
+> cached zip. It seeds `movies_db` and opens its port only after the seed,
+> which counts 32M ratings and takes several seconds.
 
 > Dev Services removes the Postgres containers when a service stops. Each
 > restart therefore re-seeds `movies_db` and empties `recs_db` until the agent's
@@ -167,6 +169,22 @@ The cached list is a plain list:
   `ai` could not use Ollama (not running, or the model is missing) or `movies`
   failed. Rerun the step 1 checks.
 
+### Known limitations
+
+- The catalog holds only titles, years and genres. MovieLens `ml-32m` has no
+  cast, director or plot data, and its ratings end in October 2023.
+- For themes outside the 19 genres ("cooking movies", "films about chess"),
+  `ai` suggests film titles from the model's own knowledge and `movies` keeps
+  the ones in the catalog. Invented titles are dropped, but the 4B model often
+  misses obvious films (for "cooking movies" it skips Ratatouille and Julie &
+  Julia, both in the catalog), so some picks fall back to the most-rated films.
+- Requests about actors or directors are unreliable. For "movies with Brad
+  Pitt" the model suggested The Revenant and Sicario next to real Brad Pitt
+  films, and nothing in the catalog can reject a real film with the wrong cast.
+  A fix would load cast and directors per film at seed time (for example from
+  Wikidata, through the IMDb ids in MovieLens `links.csv`) and filter on them
+  like genres.
+
 Running Ollama in a cluster: see [deploy/ollama.md](deploy/ollama.md).
 
 ## Current state
@@ -177,8 +195,9 @@ Done:
 - `edge` fan-out: both upstreams called concurrently.
 - `ai` wraps Ollama: `POST /extract-filters` and `POST /rank` with the pinned
   `qwen3:4b-instruct-2507-q4_K_M`.
-- `movies` seeds MovieLens `ml-latest-small` into `movies_db` and serves
-  `GET /movies/genres` and `GET /movies/candidates`.
+- `movies` seeds MovieLens `ml-32m` into `movies_db` and serves
+  `GET /movies/genres`, `GET /movies/candidates` and `GET /movies/lookup`
+  (catalog rows for the film titles `ai` suggests).
 - `recommendations` runs the live search
   (`POST /recommendations/users/{id}/search`) and a background agent that caches
   each stub user's picks in `recs_db` (`GET /recommendations/users/{id}`).

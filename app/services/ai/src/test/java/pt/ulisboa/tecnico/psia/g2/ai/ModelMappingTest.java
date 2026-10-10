@@ -47,11 +47,35 @@ class ModelMappingTest {
     void toFiltersKeepsOnlyExactAllowedGenresOnceInAllowedOrder() {
         ExtractFilters.Filters filters = ExtractFilters.toFilters(
                 new ExtractFilters.ModelFilters(
-                        Arrays.asList("Sci-Fi", "Horror", "Horror", "sci-fi", "Western2"), 0, 0),
+                        Arrays.asList("Sci-Fi", "Horror", "Horror", "sci-fi", "Western2"), 0, 0, null),
                 GENRES);
         assertEquals(List.of("Horror", "Sci-Fi"), filters.genres());
         assertNull(filters.yearFrom());
         assertNull(filters.yearTo());
+        assertEquals(List.of(), filters.suggestions());
+    }
+
+    @Test
+    void toFiltersTrimsDropsBlankDedupesAndCapsTitlesAtTen() {
+        List<String> titles = new java.util.ArrayList<>(Arrays.asList(" Alien ", "", null, "Alien", "   "));
+        for (int i = 1; i <= 11; i++) {
+            titles.add("Film " + i);
+        }
+        ExtractFilters.Filters filters = ExtractFilters.toFilters(
+                new ExtractFilters.ModelFilters(List.of(), 0, 0, titles), GENRES);
+        assertEquals(List.of("Alien", "Film 1", "Film 2", "Film 3", "Film 4", "Film 5", "Film 6", "Film 7",
+                "Film 8", "Film 9"), filters.suggestions());
+    }
+
+    @Test
+    void parseAndToFiltersCarryTitles() {
+        OllamaClient.ChatResponse response = reply("stop",
+                "{\"genres\":[],\"titles\":[\"Alien\",\"Thelma & Louise\"],\"yearFrom\":0,\"yearTo\":0}");
+        ExtractFilters.ModelFilters model =
+                OllamaWrapper.parse(new ObjectMapper(), response, ExtractFilters.ModelFilters.class);
+        ExtractFilters.Filters filters = ExtractFilters.toFilters(model, GENRES);
+        assertEquals(List.of("Alien", "Thelma & Louise"), filters.suggestions());
+        assertEquals(List.of(), filters.genres());
     }
 
     @Test

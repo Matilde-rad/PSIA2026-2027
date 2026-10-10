@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -14,63 +15,86 @@ import java.util.List;
 @ApplicationScoped
 public class CatalogRepository {
 
+    private static final String GENRES_SQL = """
+            SELECT genre
+            FROM (SELECT DISTINCT unnest(genres) AS genre FROM movie) AS g
+            ORDER BY genre COLLATE "C"
+            """;
+
+    private static final String CANDIDATES_SQL = """
+            WITH filter AS (SELECT ?::text[] AS genres, ?::int AS year_from, ?::int AS year_to)
+            SELECT m.id, m.title, m.year, m.genres, m.rating_count
+            FROM movie m, filter f
+            WHERE m.genres @> f.genres
+              AND (f.year_from IS NULL OR m.year >= f.year_from)
+              AND (f.year_to IS NULL OR m.year <= f.year_to)
+            ORDER BY m.rating_count DESC, m.id
+            LIMIT ?
+            """;
+
+    private static final String LOOKUP_SQL = """
+            SELECT DISTINCT ON (k.position) m.id, m.title, m.year, m.genres, m.rating_count
+            FROM unnest(?::text[]) WITH ORDINALITY AS k(title_key, position)
+            JOIN movie m ON m.title_key = k.title_key
+            ORDER BY k.position, m.rating_count DESC, m.id
+            """;
+
     @Inject
     AgroalDataSource dataSource;
 
     public List<String> genres() {
-        String sql = "SELECT g FROM (SELECT DISTINCT unnest(genres) AS g FROM movie) t ORDER BY g COLLATE \"C\"";
-        try (Connection c = dataSource.getConnection();
-                PreparedStatement ps = c.prepareStatement(sql);
-                ResultSet rs = ps.executeQuery()) {
-            List<String> genres = new ArrayList<>();
-            while (rs.next()) {
-                genres.add(rs.getString(1));
-            }
-            return genres;
-        } catch (SQLException e) {
-            throw new IllegalStateException("Could not read genres", e);
-        }
+        return query(GENRES_SQL, ps -> {
+        }, rs -> rs.getString("genre"));
     }
 
     public List<Candidate> candidates(List<String> genres, Integer yearFrom, Integer yearTo, int limit) {
-        StringBuilder sql = new StringBuilder("SELECT id, title, year, genres, rating_count FROM movie WHERE true");
-        if (!genres.isEmpty()) {
-            sql.append(" AND genres @> ?");
-        }
-        if (yearFrom != null) {
-            sql.append(" AND year >= ?");
-        }
-        if (yearTo != null) {
-            sql.append(" AND year <= ?");
-        }
-        sql.append(" ORDER BY rating_count DESC, id LIMIT ?");
-        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql.toString())) {
-            int i = 1;
-            if (!genres.isEmpty()) {
-                ps.setArray(i++, c.createArrayOf("text", genres.toArray()));
-            }
-            if (yearFrom != null) {
-                ps.setInt(i++, yearFrom);
-            }
-            if (yearTo != null) {
-                ps.setInt(i++, yearTo);
-            }
-            ps.setInt(i, limit);
+        return query(CANDIDATES_SQL, ps -> {
+            ps.setArray(1, textArray(ps, genres));
+            ps.setObject(2, yearFrom, Types.INTEGER);
+            ps.setObject(3, yearTo, Types.INTEGER);
+            ps.setInt(4, limit);
+        }, CatalogRepository::candidate);
+    }
+
+    public List<Candidate> lookup(List<String> titleKeys) {
+        return query(LOOKUP_SQL, ps -> ps.setArray(1, textArray(ps, titleKeys)), CatalogRepository::candidate);
+    }
+
+    private <T> List<T> query(String sql, Binder binder, RowMapper<T> mapper) {
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+            binder.bind(ps);
             try (ResultSet rs = ps.executeQuery()) {
-                List<Candidate> candidates = new ArrayList<>();
+                List<T> rows = new ArrayList<>();
                 while (rs.next()) {
-                    String[] movieGenres = (String[]) rs.getArray("genres").getArray();
-                    candidates.add(new Candidate(
-                            String.valueOf(rs.getInt("id")),
-                            rs.getString("title"),
-                            rs.getObject("year", Integer.class),
-                            Arrays.asList(movieGenres),
-                            rs.getInt("rating_count")));
+                    rows.add(mapper.map(rs));
                 }
-                return candidates;
+                return rows;
             }
         } catch (SQLException e) {
-            throw new IllegalStateException("Could not query candidates", e);
+            throw new IllegalStateException("Catalog query failed", e);
         }
+    }
+
+    private static java.sql.Array textArray(PreparedStatement ps, List<String> values) throws SQLException {
+        return ps.getConnection().createArrayOf("text", values.toArray());
+    }
+
+    private static Candidate candidate(ResultSet rs) throws SQLException {
+        return new Candidate(
+                String.valueOf(rs.getInt("id")),
+                rs.getString("title"),
+                rs.getObject("year", Integer.class),
+                Arrays.asList((String[]) rs.getArray("genres").getArray()),
+                rs.getInt("rating_count"));
+    }
+
+    @FunctionalInterface
+    private interface Binder {
+        void bind(PreparedStatement ps) throws SQLException;
+    }
+
+    @FunctionalInterface
+    private interface RowMapper<T> {
+        T map(ResultSet rs) throws SQLException;
     }
 }

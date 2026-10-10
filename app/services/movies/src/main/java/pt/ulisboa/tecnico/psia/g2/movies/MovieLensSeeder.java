@@ -35,9 +35,9 @@ import org.jboss.logging.Logger;
 public class MovieLensSeeder {
 
     private static final Logger LOG = Logger.getLogger(MovieLensSeeder.class);
-    private static final String ZIP_NAME = "ml-latest-small.zip";
-    private static final String MOVIES_ENTRY = "ml-latest-small/movies.csv";
-    private static final String RATINGS_ENTRY = "ml-latest-small/ratings.csv";
+    private static final String ZIP_NAME = "ml-32m.zip";
+    private static final String MOVIES_ENTRY = "ml-32m/movies.csv";
+    private static final String RATINGS_ENTRY = "ml-32m/ratings.csv";
     private static final int BATCH_SIZE = 1000;
 
     @Inject
@@ -82,13 +82,13 @@ public class MovieLensSeeder {
             return zip;
         }
         Files.createDirectories(dir);
-        Path tmp = Files.createTempFile(dir, "ml-latest-small", ".part");
+        Path tmp = Files.createTempFile(dir, "ml-32m", ".part");
         try {
             HttpClient client = HttpClient.newBuilder()
                     .followRedirects(HttpClient.Redirect.NORMAL)
                     .connectTimeout(Duration.ofSeconds(10))
                     .build();
-            HttpRequest request = HttpRequest.newBuilder(URI.create(seedUrl)).timeout(Duration.ofMinutes(2)).GET().build();
+            HttpRequest request = HttpRequest.newBuilder(URI.create(seedUrl)).timeout(Duration.ofMinutes(10)).GET().build();
             HttpResponse<Path> response = client.send(request, HttpResponse.BodyHandlers.ofFile(tmp));
             if (response.statusCode() != 200) {
                 throw new IOException("MovieLens download failed with HTTP " + response.statusCode() + " from " + seedUrl);
@@ -144,7 +144,7 @@ public class MovieLensSeeder {
         boolean previousAutoCommit = connection.getAutoCommit();
         connection.setAutoCommit(false);
         try (PreparedStatement ps = connection.prepareStatement(
-                "INSERT INTO movie (id, title, year, genres, rating_count) VALUES (?, ?, ?, ?, ?)")) {
+                "INSERT INTO movie (id, title, year, genres, rating_count, title_key) VALUES (?, ?, ?, ?, ?, ?)")) {
             int pending = 0;
             for (MovieLensCsv.MovieRow row : rows) {
                 ps.setInt(1, row.id());
@@ -156,6 +156,7 @@ public class MovieLensSeeder {
                 }
                 ps.setArray(4, connection.createArrayOf("text", row.genres().toArray()));
                 ps.setInt(5, ratingCounts.getOrDefault(row.id(), 0));
+                ps.setString(6, MovieLensCsv.titleKey(row.title()));
                 ps.addBatch();
                 if (++pending % BATCH_SIZE == 0) {
                     ps.executeBatch();
