@@ -2,7 +2,7 @@
 
 Kubernetes manifests.
 
-Empty for now. Directories to create as each piece lands:
+No manifests yet. `ollama.md` is the sizing and settings note for the Ollama pod. Directories to create as each piece lands:
 
     apps/<component>/   Deployment, Service, and the component's own Postgres
     monitoring/         Prometheus + Grafana, dashboard JSON
