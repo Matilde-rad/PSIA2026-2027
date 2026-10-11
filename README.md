@@ -3,7 +3,7 @@
 PSIA 2026/27 project, group 2.
 
 > **Status: skeleton.** The services return hardcoded values. No database, no
-> inference engine, no frontend, no deployment. See *Current state* below.
+> inference engine, no deployment. See *Current state* below.
 
 Users register, create a profile describing their interests, and ask the
 platform's AI for movie recommendations matching that profile. Users can browse
@@ -18,7 +18,7 @@ app/                Maven reactor (Java 21, Quarkus 3.39.4)
   services/movies/    movie catalog                      → movies_db
   services/recommendations/  AI recommendations + cache  → recs_db
   edge/               aggregates services for the UI (no database)
-frontend/web/       web UI — framework not chosen yet         (empty)
+frontend/web/       web UI (React + Vite), talks only to edge
 infra/terraform/    VMs for the cluster                       (empty)
 infra/ansible/      installs software/configs onto those VMs  (empty)
 deploy/             Kubernetes manifests, monitoring          (empty)
@@ -62,7 +62,12 @@ mvn -f app/pom.xml -pl services/users test -Dtest=RegisterResourceTest   # one c
   keeps the default of 12.
 - Tests sign and verify JWTs with the committed test-only key pair in
   `app/services/users/src/test/resources` (see `TEST-ONLY-KEYS.md` there), so no
-  secrets are needed.
+  secrets are needed. `edge` has its own copy in `app/edge/src/test/resources`.
+- The `edge` tests need no Docker: they stub `users` and `recommendations` with
+  Mockito (`@InjectMock`) and sign tokens with edge's copy of the test-only pair.
+- The JSON files in `app/contracts/` are the contract between `users` and `edge`.
+  `ContractFixturesTest` in both modules fails the build if a field of the user or
+  login response drifts.
 
 ## Auth keys (users)
 
@@ -76,9 +81,12 @@ with the matching public key. Only `users` ever holds the private key.
   `MP_JWT_VERIFY_PUBLICKEY_LOCATION` to files of a mounted secret, for example
   `file:/etc/jwt/privateKey.pem` and `file:/etc/jwt/publicKey.pem`. There is no
   fallback to the dev or test keys.
-- **Tests:** the pair in `src/test/resources` is test-only and public.
-- **Before committing**, run `git status` and make sure no `.pem` other than the two
-  `test-*.pem` files appears. `*.pem` and `app/keys/dev/` are gitignored as a safety net.
+- **edge:** only verifies tokens, with the public key. Dev reads
+  `app/keys/dev/publicKey.pem` (run `./app/keys/gen-dev-keys.sh` first); prod needs only
+  `MP_JWT_VERIFY_PUBLICKEY_LOCATION`. edge never gets the private key.
+- **Tests:** the pairs in `src/test/resources` (users and edge) are test-only and public.
+- **Before committing**, run `git status` and make sure no `.pem` other than the four
+  `test-*.pem` files (two in users, two in edge) appears. `*.pem` and `app/keys/dev/` are gitignored as a safety net.
 - Do not commit token-level debug logging of the JWT validator: it prints token details.
 
 ## Run locally (dev mode)
@@ -113,17 +121,40 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/users/me
 
 Every `users` endpoint except `POST /users` and `POST /auth/login` needs a token.
 Call register and login **without** an `Authorization` header: a stale or invalid
-token sent to them gets a 401. `edge`'s `/screens/profile/{id}` gets a 401 from
-`users` until `edge` forwards the token (Phase 4).
+token sent to them gets a 401.
 
 ```sh
 curl http://127.0.0.1:8082/movies/42
 curl http://127.0.0.1:8083/recommendations/users/42
-curl http://127.0.0.1:8080/screens/profile/42
 ```
 
-`edge` calls `users` and `recommendations` concurrently via
-`Uni.combine().all().unis(...)`.
+The UI talks only to `edge` (:8080, start `users` and `recommendations` too):
+
+```sh
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"password1"}' http://127.0.0.1:8080/auth/register
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"password1"}' http://127.0.0.1:8080/auth/login   # token and user.id
+TOKEN=<the token from the login response>
+ID=<user.id from the login response>
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/me
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID
+```
+
+- Register and login are the only public routes; everything else needs the token.
+  `edge` verifies it and forwards it to `users`.
+- Your own screen has `recommendations`; any other user's screen has
+  `"recommendations": []`.
+- Every error has the `users` JSON shape. A 400, 404, 409 or 401 from `users` comes back
+  unchanged.
+- A failing or unreachable `users` or `recommendations` gives 502 `bad_gateway`. A
+  malformed id gives 404.
+- On your own screen `edge` calls `users` and `recommendations` concurrently via
+  `Uni.combine()`.
+
+Web UI: with `users`, `recommendations` and `edge` running, run
+`cd frontend/web && npm install && npm run dev`, then open http://127.0.0.1:5173.
+Details in `frontend/web/README.md`.
 
 The three services expose `/q/health`, `/q/openapi` and `/q/swagger-ui` (the
 last in dev only). `edge` carries neither the health nor the OpenAPI
@@ -134,18 +165,20 @@ extension yet, so it has none of them.
 Done:
 
 - Maven reactor with four Quarkus modules, building and running.
-- `edge` fan-out: both upstreams called concurrently.
+- `edge` is the UI's backend for register, login, me and the profile screen: it
+  verifies the JWT, forwards the caller's token, and on the caller's own screen calls
+  `users` and `recommendations` concurrently.
+- Contract fixtures in `app/contracts` catch field drift between `users` and `edge`.
 - `users`: registration and login (RS256 JWT), `GET /users/me`, every other
   endpoint denied without a valid token (deny-by-default).
+- Web UI in `frontend/web` (React + Vite): register, login, logout and the profile
+  header with real data through `edge`. Home's For you list, the genre bar, Edit profile
+  and Social search are static previews until their services exist.
 
 Not started:
 
 - Domain logic and persistence for the other services (one Postgres per service).
 - Inference engine (Ollama) and the background recommendation agent.
-- Web UI — framework undecided.
-- Contract tests. `edge` holds its own copies of the `users` and
-  `recommendations` response records, and nothing catches drift between them: a
-  rename on one side surfaces at runtime as a null field, never at compile time.
 - Resilience on the `edge` clients. No retry, timeout or circuit breaker —
   an upstream failure propagates straight to the caller.
 - `compose.yaml` for the local container deployment.
