@@ -30,3 +30,4 @@ infra/ansible/inventory.ini
 *.iml
 .vscode/
 .DS_Store
+javac.*.args

@@ -31,6 +31,7 @@
     <module>services/users</module>
     <module>services/movies</module>
     <module>services/recommendations</module>
+    <module>services/social-discovery</module>
     <module>edge</module>
   </modules>
 
