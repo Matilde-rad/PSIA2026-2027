@@ -88,9 +88,10 @@ function Carousel({ items }) {
 }
 
 function Banner({ title, bannerUrl }) {
+  const [failed, setFailed] = useState(false)
   return (
     <article className="banner" style={{ '--poster-hue': hueFor(title) }}>
-      {bannerUrl && <img src={bannerUrl} alt="" loading="lazy" />}
+      {bannerUrl && !failed && <img src={bannerUrl} alt="" loading="lazy" onError={() => setFailed(true)} />}
       <span className="banner-title">{title}</span>
     </article>
   )

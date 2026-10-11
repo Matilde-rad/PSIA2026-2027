@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import ForYou from './ForYou.jsx'
-import SearchPreview from '../previews/SearchPreview.jsx'
+import Search from './Search.jsx'
 
 const TABS = [
   { id: 'for-you', label: 'For you' },
@@ -25,7 +25,7 @@ export default function HomePage() {
           </button>
         ))}
       </div>
-      {tab === 'for-you' ? <ForYou /> : <SearchPreview />}
+      {tab === 'for-you' ? <ForYou /> : <Search />}
     </>
   )
 }

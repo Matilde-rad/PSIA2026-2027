@@ -505,6 +505,23 @@ img {
   color: var(--text-muted);
 }
 
+.ask-bar:focus-within {
+  border-color: var(--accent-from);
+}
+
+.ask-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font: inherit;
+}
+
+.ask-input:focus {
+  outline: none;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
