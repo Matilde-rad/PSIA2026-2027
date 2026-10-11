@@ -1,11 +1,14 @@
 package pt.ulisboa.tecnico.psia.g2.users;
 
+import jakarta.persistence.Query;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Path("/profiles")
@@ -13,9 +16,29 @@ import java.util.UUID;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ProfileResource {
 
+    // Browse other users' profiles. Case-insensitive substring match against the
+    // JSON arrays, done in Postgres.
     @GET
-    public List<Profile> list() {
-        return Profile.listAll();
+    @SuppressWarnings("unchecked")
+    public List<Profile> list(@QueryParam("genre") String genre, @QueryParam("director") String director) {
+        StringBuilder sql = new StringBuilder("select p.* from profiles p where true");
+        Map<String, String> params = new HashMap<>();
+        if (genre != null && !genre.isBlank()) {
+            sql.append(matches("favoriteGenres", "genre"));
+            params.put("genre", genre);
+        }
+        if (director != null && !director.isBlank()) {
+            sql.append(matches("favoriteDirectors", "director"));
+            params.put("director", director);
+        }
+        Query query = Profile.getEntityManager().createNativeQuery(sql.toString(), Profile.class);
+        params.forEach(query::setParameter);
+        return query.getResultList();
+    }
+
+    private static String matches(String column, String param) {
+        return " and exists (select 1 from jsonb_array_elements_text(p." + column + ") e"
+                + " where position(lower(:" + param + ") in lower(e)) > 0)";
     }
 
     @GET

@@ -17,7 +17,6 @@ app/                Maven reactor (Java 21, Quarkus 3.39.4)
   services/users/     accounts, login, profiles          → users_db
   services/movies/    movie catalog                      → movies_db
   services/recommendations/  AI recommendations + cache  → recs_db
-  services/social-discovery/ browse/filter other users' profiles (no database)
   edge/               aggregates services for the UI (no database)
 frontend/web/       web UI — framework not chosen yet         (empty)
 infra/terraform/    VMs for the cluster                       (empty)
@@ -27,8 +26,7 @@ deploy/             Kubernetes manifests, monitoring          (empty)
 
 Each microservice owns a dedicated database instance. `edge` is
 the backend-for-frontend: an aggregator rather than a domain service, so it has
-no database. `social-discovery` has none either: it reads profiles from `users`
-over REST.
+no database.
 
 groupId `pt.ulisboa.tecnico.psia.g2` · version via `${revision}`
 
@@ -40,7 +38,7 @@ mvn clean install                     # whole reactor
 mvn -pl services/users clean install  # one module on its own
 ```
 
-The five modules are independent no shared module, so no `-am` needed.
+The four modules are independent no shared module, so no `-am` needed.
 
 ## Run locally (dev mode)
 
@@ -50,7 +48,6 @@ Dev ports are distinct so everything can run at once:
 cd app/services/users           && mvn quarkus:dev   # :8081
 cd app/services/movies          && mvn quarkus:dev   # :8082
 cd app/services/recommendations && mvn quarkus:dev   # :8083
-cd app/services/social-discovery && mvn quarkus:dev  # :8084
 cd app/edge                     && mvn quarkus:dev   # :8080
 ```
 
@@ -58,7 +55,8 @@ Only `%dev.quarkus.http.port` differs the packaged/container port is 8080
 everywhere.
 
 `users` has a Postgres datasource, so its dev mode needs Docker (or Podman)
-running: Quarkus Dev Services starts the database container for it.
+running: Quarkus Dev Services starts the database container for it. Each
+`quarkus:dev` also wants debug port 5005; pass `-Ddebug=false` to all but one.
 
 > A Docker container on this machine may already publish `*:8080`, in which case
 > `http://localhost:8080` resolves to it over IPv6 while Quarkus binds
@@ -66,17 +64,18 @@ running: Quarkus Dev Services starts the database container for it.
 
 ```sh
 curl http://127.0.0.1:8081/users/42
-curl http://127.0.0.1:8081/profiles
+curl 'http://127.0.0.1:8081/profiles?genre=horror'
 curl http://127.0.0.1:8082/movies/42
 curl http://127.0.0.1:8083/recommendations/users/42
-curl 'http://127.0.0.1:8084/discover/users?genre=horror'
 curl http://127.0.0.1:8080/screens/profile/42
+curl 'http://127.0.0.1:8080/screens/discover?genre=horror'
 ```
 
 `edge` calls `users` and `recommendations` concurrently via
-`Uni.combine().all().unis(...)`.
+`Uni.combine().all().unis(...)`. Its `/screens/discover` forwards to `users`,
+which filters profiles by favourite genre or director in the database.
 
-The four services expose `/q/health`, `/q/openapi` and `/q/swagger-ui` (the
+The three services expose `/q/health`, `/q/openapi` and `/q/swagger-ui` (the
 last in dev only). `edge` carries neither the health nor the OpenAPI
 extension yet, so it has none of them.
 
@@ -84,9 +83,11 @@ extension yet, so it has none of them.
 
 Done:
 
-- Maven reactor with five Quarkus modules, building and running.
+- Maven reactor with four Quarkus modules, building and running.
 - Profile CRUD (`/profiles`) in `users`, persisted in `users_db`.
-- `social-discovery`: filter profiles by favourite genre or director.
+- Social discovery: `GET /profiles?genre=&director=` filters profiles by
+  favourite genre or director, exposed to the UI as `edge`'s
+  `/screens/discover`.
 - `edge` fan-out: both upstreams called concurrently.
 
 Not started:
