@@ -1,6 +1,67 @@
-# frontend/web
+# frontend/web — Cinemate web UI
 
-Empty on purpose — the framework is not chosen yet. Scaffold in here once it is.
+React 19 + Vite 8, plain JavaScript and CSS. It talks only to `edge`.
 
 Deliberately **not** a Maven module and absent from `app/pom.xml`'s `<modules>`:
 the Java build and the frontend build stay independent.
+
+## Run it (dev)
+
+Needs Node 20.19+ or 22.12+ and npm.
+
+```sh
+./app/keys/gen-dev-keys.sh                       # once, from the repo root
+cd app/services/users           && mvn quarkus:dev   # :8081
+cd app/services/recommendations && mvn quarkus:dev   # :8083
+cd app/edge                     && mvn quarkus:dev   # :8080
+```
+
+Then, in another terminal:
+
+```sh
+cd frontend/web
+npm install
+npm run dev
+```
+
+Open http://127.0.0.1:5173.
+
+Home's For you tab and your own profile need the recommendations service running:
+edge calls it for them and answers 502 without it.
+
+## How it reaches edge
+
+Vite's dev server forwards `/auth`, `/me` and `/screens` to http://127.0.0.1:8080
+(`vite.config.js`). The browser sees one origin, so edge needs no CORS.
+The screens edge serves are `/screens/home` (Home, For you tab) and `/screens/profile/ID`.
+
+`npm run build` writes `dist/`. Serving it in production belongs to the deploy work.
+
+## Real vs preview
+
+| Real | Static preview ("Preview · coming soon") |
+|------|-------------------------------------------|
+| Register (you are logged in right after; username and password checked as you type) | Home: Search tab (ask bar and example movies) |
+| Login and logout | Profile: bio, favorite genres, Edit profile form (Matilde's Profile service) |
+| Redirects for logged-out and logged-in users | Social: name search and genre matches (Matilde's Social Discovery service) |
+| Profile header (username, member since) for any user id at `/profile/ID` | |
+| Home: For you, your recommendations as a banner carousel and grid (`/screens/home`) | |
+
+## Session
+
+The token and the user are kept in localStorage under `g2.session`. Tokens last 1 h.
+Any 401 sends you to the login page with "Your session expired, please log in again."
+Log out only clears the browser.
+
+## Code map
+
+- `src/main.jsx` — starts React.
+- `src/App.jsx` — routes, guards, nav.
+- `src/api.js` — the only place that calls edge.
+- `src/auth.jsx` — session state and login, register, logout.
+- `src/pages/` — one file per screen, plus `ForYou.jsx` (Home's For you tab).
+- `src/components/` — small shared pieces (Avatar, MovieCard, PreviewBadge).
+- `src/previews/` — one file per preview, replaced when its backend exists.
+- `src/styles.css` — all styles; design tokens at the top.
+
+There are no frontend tests yet (D-66); the phase was checked by a manual walkthrough.

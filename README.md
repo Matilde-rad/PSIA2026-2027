@@ -2,9 +2,9 @@
 
 PSIA 2026/27 project, group 2.
 
-> **Status:** the AI and recommendations slice (`ai`, `movies`,
-> `recommendations` and a `users` stub) runs locally; see *AI and
-> recommendations slice: run locally*. Registration, login, the web UI and the
+> **Status:** registration, login and the web UI run locally, and so does the AI
+> and recommendations slice (`ai`, `movies`, `recommendations`; see *AI and
+> recommendations slice: run locally*). Profiles, social discovery and the
 > deployment are not built yet. See *Current state* below.
 
 Users register, create a profile describing their interests, and ask the
@@ -21,7 +21,7 @@ app/                Maven reactor (Java 21, Quarkus 3.39.4)
   services/recommendations/  AI recommendations + cache  → recs_db
   services/ai/        wraps the Ollama model (no database)
   edge/               aggregates services for the UI (no database)
-frontend/web/       web UI — framework not chosen yet         (empty)
+frontend/web/       web UI (React + Vite), talks only to edge
 infra/terraform/    VMs for the cluster                       (empty)
 infra/ansible/      installs software/configs onto those VMs  (empty)
 deploy/             Kubernetes manifests, monitoring          (Ollama sizing note only)
@@ -42,6 +42,55 @@ mvn -pl services/users clean install  # one module on its own
 ```
 
 The five modules are independent no shared module, so no `-am` needed.
+
+## Running tests
+
+```sh
+cd app && mvn verify                   # all modules
+mvn -f app/pom.xml verify              # same, from the repo root
+mvn -f app/pom.xml -pl services/users test -Dtest=RegisterResourceTest   # one class
+```
+
+- A Docker-compatible container engine must be running and
+  reachable from your shell. Check with `docker info` before running the tests.
+- Quarkus Dev Services starts a throwaway Postgres container for the tests (the
+  first run pulls the postgres image and testcontainers/ryuk), so no database
+  has to be started by hand.
+- If Docker is unreachable the build **fails**. There is deliberately no H2
+  fallback and no skipping: H2 would hide Postgres behaviour such as the
+  lowercase `CHECK` constraint on usernames.
+- Tests use a random HTTP port, so `quarkus:dev` instances on 8080-8083 can stay
+  running.
+- The test profile uses bcrypt cost 4 (`%test.users.bcrypt.cost`); production
+  keeps the default of 12.
+- Tests sign and verify JWTs with the committed test-only key pair in
+  `app/services/users/src/test/resources` (see `TEST-ONLY-KEYS.md` there), so no
+  secrets are needed. `edge` has its own copy in `app/edge/src/test/resources`.
+- The `edge` tests need no Docker: they stub `users` and `recommendations` with
+  Mockito (`@InjectMock`) and sign tokens with edge's copy of the test-only pair.
+- The JSON files in `app/contracts/` are the contract between `users` and `edge`.
+  `ContractFixturesTest` in both modules fails the build if a field of the user or
+  login response drifts.
+
+## Auth keys (users)
+
+The `users` service signs login tokens (RS256) with a private key and verifies them
+with the matching public key. Only `users` ever holds the private key.
+
+- **Dev:** run `./app/keys/gen-dev-keys.sh` once before `mvn quarkus:dev` in
+  `app/services/users`. The keys land in `app/keys/dev/`, which is gitignored and
+  outside every module's resources. The script does not overwrite existing keys unless you pass `--force`.
+- **Prod:** set `SMALLRYE_JWT_SIGN_KEY_LOCATION` and
+  `MP_JWT_VERIFY_PUBLICKEY_LOCATION` to files of a mounted secret, for example
+  `file:/etc/jwt/privateKey.pem` and `file:/etc/jwt/publicKey.pem`. There is no
+  fallback to the dev or test keys.
+- **edge:** only verifies tokens, with the public key. Dev reads
+  `app/keys/dev/publicKey.pem` (run `./app/keys/gen-dev-keys.sh` first); prod needs only
+  `MP_JWT_VERIFY_PUBLICKEY_LOCATION`. edge never gets the private key.
+- **Tests:** the pairs in `src/test/resources` (users and edge) are test-only and public.
+- **Before committing**, run `git status` and make sure no `.pem` other than the four
+  `test-*.pem` files (two in users, two in edge) appears. `*.pem` and `app/keys/dev/` are gitignored as a safety net.
+- Do not commit token-level debug logging of the JWT validator: it prints token details.
 
 ## Run locally (dev mode)
 
@@ -65,15 +114,54 @@ everywhere.
 > `http://localhost:8080` resolves to it over IPv6 while Quarkus binds
 > `127.0.0.1:8080`. Use `http://127.0.0.1:8080`.
 
+For `users`, register, log in to get a token, then call a protected endpoint with it
+(run `./app/keys/gen-dev-keys.sh` first, see *Auth keys (users)*):
+
 ```sh
-curl http://127.0.0.1:8081/users/42
-curl http://127.0.0.1:8082/movies/genres
-curl http://127.0.0.1:8083/recommendations/users/1
-curl http://127.0.0.1:8080/screens/profile/42
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"password1"}' http://127.0.0.1:8081/users
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"password1"}' http://127.0.0.1:8081/auth/login   # returns "token"
+TOKEN=<the token from the login response>
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/users/me
 ```
 
-`edge` calls `users` and `recommendations` concurrently via
-`Uni.combine().all().unis(...)`.
+Every `users` endpoint except `POST /users` and `POST /auth/login` needs a token.
+Call register and login **without** an `Authorization` header: a stale or invalid
+token sent to them gets a 401.
+
+```sh
+curl http://127.0.0.1:8082/movies/genres
+curl http://127.0.0.1:8083/recommendations/users/42
+```
+
+The UI talks only to `edge` (:8080, start `users` and `recommendations` too):
+
+```sh
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"password1"}' http://127.0.0.1:8080/auth/register
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"password1"}' http://127.0.0.1:8080/auth/login   # token and user.id
+TOKEN=<the token from the login response>
+ID=<user.id from the login response>
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/me
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID
+```
+
+- Register and login are the only public routes; everything else needs the token.
+  `edge` verifies it and forwards it to `users`.
+- Your own screen has `recommendations`; any other user's screen has
+  `"recommendations": []`.
+- Every error has the `users` JSON shape. A 400, 404, 409 or 401 from `users` comes back
+  unchanged.
+- A failing or unreachable `users` or `recommendations` gives 502 `bad_gateway`. A
+  malformed id gives 404.
+- On your own screen `edge` calls `users` and `recommendations` concurrently via
+  `Uni.combine()`.
+
+Web UI: with `users`, `recommendations` and `edge` running, run
+`cd frontend/web && npm install && npm run dev`, then open http://127.0.0.1:5173.
+Details in `frontend/web/README.md`.
 
 `users`, `movies` and `recommendations` expose `/q/health`, `/q/openapi` and
 `/q/swagger-ui` (the last in dev only).
@@ -82,9 +170,9 @@ none of them.
 
 ## AI and recommendations slice: run locally
 
-This starts the `users` stub, `ai`, `movies` and `recommendations` in dev mode
-against a local Ollama. `edge` is not needed and is not started here. Tested on
-macOS (Apple M4, 16 GB).
+This starts `ai`, `movies` and `recommendations` in dev mode against a local
+Ollama. `users` and `edge` are not needed for the checks below. Tested on macOS
+(Apple M4, 16 GB).
 
 ### Prerequisites
 
@@ -119,18 +207,17 @@ curl -s http://127.0.0.1:11434/api/tags            # must list qwen3:4b-instruct
 One terminal each, from the repo root, in this order:
 
 ```sh
-cd app/services/users           && mvn quarkus:dev   # :8081
 cd app/services/ai              && mvn quarkus:dev   # :8084
 cd app/services/movies          && mvn quarkus:dev   # :8082
 cd app/services/recommendations && mvn quarkus:dev   # :8083, start last
 ```
 
-> Start `recommendations` last, once `users`, `ai` and `movies` have each logged
+> Start `recommendations` last, once `ai` and `movies` have each logged
 > `started in`. Its background agent runs once at startup and then every 10
-> minutes (`recs.agent.every`). If the others are not up yet, it logs
-> `agent run skipped users unavailable` and the cached lists stay empty until the
-> next run. Restart `recommendations`, or start it with
-> `RECS_AGENT_EVERY=30s mvn quarkus:dev` for a shorter interval.
+> minutes (`recs.agent.every`). It still lists users through `GET /users`, which
+> `users` no longer serves, so every run logs
+> `agent run skipped users unavailable` and caches nothing until the agent reads
+> user profiles.
 
 > On its first start, `movies` downloads MovieLens `ml-32m` (239 MB, 87,585
 > movies, ratings up to October 2023) into the JVM temp dir, never into the
@@ -148,7 +235,7 @@ cd app/services/recommendations && mvn quarkus:dev   # :8083, start last
 curl -s -X POST -H 'Content-Type: application/json' \
   -d '{"text":"a horror movie from the 80s"}' \
   http://127.0.0.1:8083/recommendations/users/1/search   # calls ai, movies and Ollama; a few seconds on an Apple-silicon Mac
-curl -s http://127.0.0.1:8083/recommendations/users/1    # reads recs_db only; filled by the agent's first run
+curl -s http://127.0.0.1:8083/recommendations/users/1    # reads recs_db only; [] until the agent reads profiles
 ```
 
 The search answers the picks plus the filters the AI extracted:
@@ -157,14 +244,13 @@ The search answers the picks plus the filters the AI extracted:
 {"results":[{"movieId":"1258","title":"Shining, The (1980)"},{"movieId":"1994","title":"Poltergeist (1982)"},{"movieId":"1974","title":"Friday the 13th (1980)"}],"appliedFilters":{"genres":["Horror"],"yearFrom":1980,"yearTo":1989}}
 ```
 
-The cached list is a plain list:
+The cached list, once the agent fills it, is a plain list:
 
 ```json
 [{"movieId":"1258","title":"Shining, The (1980)"},{"movieId":"1994","title":"Poltergeist (1982)"},{"movieId":"1974","title":"Friday the 13th (1980)"}]
 ```
 
-- Users `1`, `2` and `3` come from the `users` stub
-  (`curl -s http://127.0.0.1:8081/users`). Any other id gets `[]`.
+- The search works for any user id; it does not call `users`.
 - An HTTP 503 `{"error":"ai_unavailable","message":"AI service down"}` means
   `ai` could not use Ollama (not running, or the model is missing) or `movies`
   failed. Rerun the step 1 checks.
@@ -192,24 +278,30 @@ Running Ollama in a cluster: see [deploy/ollama.md](deploy/ollama.md).
 Done:
 
 - Maven reactor with five Quarkus modules, building and running.
-- `edge` fan-out: both upstreams called concurrently.
+- `edge` is the UI's backend for register, login, me and the profile screen: it
+  verifies the JWT, forwards the caller's token, and on the caller's own screen calls
+  `users` and `recommendations` concurrently.
+- Contract fixtures in `app/contracts` catch field drift between `users` and `edge`.
+- `users`: registration and login (RS256 JWT), `GET /users/me`, every other
+  endpoint denied without a valid token (deny-by-default).
+- Web UI in `frontend/web` (React + Vite): register, login, logout and the profile
+  header with real data through `edge`. Home's For you list, the genre bar, Edit profile
+  and Social search are static previews until their services exist.
 - `ai` wraps Ollama: `POST /extract-filters` and `POST /rank` with the pinned
   `qwen3:4b-instruct-2507-q4_K_M`.
 - `movies` seeds MovieLens `ml-32m` into `movies_db` and serves
   `GET /movies/genres`, `GET /movies/candidates` and `GET /movies/lookup`
   (catalog rows for the film titles `ai` suggests).
 - `recommendations` runs the live search
-  (`POST /recommendations/users/{id}/search`) and a background agent that caches
-  each stub user's picks in `recs_db` (`GET /recommendations/users/{id}`).
-- `users` stub: `GET /users` lists three fixed users.
+  (`POST /recommendations/users/{id}/search`) and serves the cached picks
+  (`GET /recommendations/users/{id}`) from `recs_db`.
 
 Not started:
 
-- `users` domain logic and persistence (`users_db`), registration and login.
-- Web UI — framework undecided.
-- Contract tests. `edge` holds its own copies of the `users` and
-  `recommendations` response records, and nothing catches drift between them: a
-  rename on one side surfaces at runtime as a null field, never at compile time.
+- Profiles and social discovery.
+- The background agent's user source. It still calls `GET /users`, which
+  `users` no longer has, so it caches nothing until it reads user profiles.
+- `edge` route and UI for the AI search (the Search tab is a static preview).
 - Resilience on the `edge` clients. No retry, timeout or circuit breaker —
   an upstream failure propagates straight to the caller.
 - `compose.yaml` for the local container deployment.

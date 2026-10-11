@@ -1,0 +1,9 @@
+{
+  "token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJhbGljZSJ9.c2lnbmF0dXJl",
+  "expiresAt": "2026-10-08T13:00:00Z",
+  "user": {
+    "id": "6f1c2a4e-8b0d-4c1e-9f3a-2d5b7e9c1a04",
+    "username": "alice",
+    "createdAt": "2026-10-08T12:00:00Z"
+  }
+}

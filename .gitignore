@@ -30,3 +30,12 @@ infra/ansible/inventory.ini
 *.iml
 .vscode/
 .DS_Store
+
+# --- JWT keys ---
+# Private signing keys are never committed. Only the labelled test-only pairs in users
+# and edge (src/test/resources/test-*.pem, see TEST-ONLY-KEYS.md) are allowed. Product
+# security rule authorised by Phase 2 CONTEXT; local tooling stays in .git/info/exclude.
+*.pem
+app/keys/dev/
+!app/services/users/src/test/resources/test-*.pem
+!app/edge/src/test/resources/test-*.pem

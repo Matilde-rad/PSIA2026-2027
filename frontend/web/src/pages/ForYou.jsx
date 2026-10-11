@@ -1,0 +1,97 @@
+import { useEffect, useState } from 'react'
+import { apiFetch } from '../api.js'
+import MovieCard, { hueFor } from '../components/MovieCard.jsx'
+
+export default function ForYou() {
+  const [recommendations, setRecommendations] = useState(null)
+  const [error, setError] = useState(null)
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    let ignore = false
+    setRecommendations(null)
+    setError(null)
+    apiFetch('/screens/home')
+      .then((data) => {
+        if (!ignore) setRecommendations(data.recommendations)
+      })
+      .catch((err) => {
+        if (!ignore && err.status !== 401) setError(err)
+      })
+    return () => {
+      ignore = true
+    }
+  }, [attempt])
+
+  if (error) {
+    return (
+      <div className="state-message">
+        <p className="state-title">Something went wrong, try again.</p>
+        <button className="btn btn-secondary" onClick={() => setAttempt(attempt + 1)}>
+          Try again
+        </button>
+      </div>
+    )
+  }
+  if (!recommendations) return <p className="state-text">Loading recommendations…</p>
+  if (recommendations.length === 0) {
+    return (
+      <div className="state-message">
+        <p className="state-text">No recommendations yet.</p>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <Carousel items={recommendations} />
+      <div className="movie-grid">
+        {recommendations.map((rec) => (
+          <MovieCard key={rec.movieId} title={rec.title} posterUrl={rec.posterUrl} />
+        ))}
+      </div>
+    </>
+  )
+}
+
+const SLIDE_MS = 6000
+
+function Carousel({ items }) {
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    if (items.length < 2) return
+    const timer = setTimeout(() => setIndex((index + 1) % items.length), SLIDE_MS)
+    return () => clearTimeout(timer)
+  }, [index, items.length])
+
+  const current = items[index]
+  return (
+    <section className="carousel" style={{ '--slide-ms': `${SLIDE_MS}ms` }}>
+      <Banner key={current.movieId} title={current.title} bannerUrl={current.bannerUrl} />
+      {items.length > 1 && (
+        <div className="carousel-lines">
+          {items.map((rec, i) => (
+            <button
+              key={rec.movieId}
+              type="button"
+              className={i === index ? 'carousel-line carousel-line-active' : 'carousel-line'}
+              aria-label={`Show ${rec.title}`}
+              aria-current={i === index}
+              onClick={() => setIndex(i)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function Banner({ title, bannerUrl }) {
+  return (
+    <article className="banner" style={{ '--poster-hue': hueFor(title) }}>
+      {bannerUrl && <img src={bannerUrl} alt="" loading="lazy" />}
+      <span className="banner-title">{title}</span>
+    </article>
+  )
+}
