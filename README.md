@@ -146,6 +146,8 @@ TOKEN=<the token from the login response>
 ID=<user.id from the login response>
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/me
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID
+curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"text":"a horror movie from the 80s"}' http://127.0.0.1:8080/screens/search
 ```
 
 - Register and login are the only public routes; everything else needs the token.
@@ -156,10 +158,14 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID
   unchanged.
 - A failing or unreachable `users` or `recommendations` gives 502 `bad_gateway`. A
   malformed id gives 404.
+- `/screens/search` asks the AI for 10 movies through `recommendations`, so it also
+  needs `ai`, `movies` and Ollama (see *AI and recommendations slice: run locally*).
+  When the AI cannot answer it gives 503 `ai_unavailable`.
 - On your own screen `edge` calls `users` and `recommendations` concurrently via
   `Uni.combine()`.
 
-Web UI: with `users`, `recommendations` and `edge` running, run
+Web UI: with `users`, `recommendations` and `edge` running (plus `ai`, `movies`
+and Ollama for the Search tab), run
 `cd frontend/web && npm install && npm run dev`, then open http://127.0.0.1:5173.
 Details in `frontend/web/README.md`.
 
@@ -238,17 +244,19 @@ curl -s -X POST -H 'Content-Type: application/json' \
 curl -s http://127.0.0.1:8083/recommendations/users/1    # reads recs_db only; [] until the agent reads profiles
 ```
 
-The search answers the picks plus the filters the AI extracted:
+The search answers 10 picks plus the filters the AI extracted (shortened here to
+the first pick):
 
 ```json
-{"results":[{"movieId":"1258","title":"Shining, The (1980)"},{"movieId":"1994","title":"Poltergeist (1982)"},{"movieId":"1974","title":"Friday the 13th (1980)"}],"appliedFilters":{"genres":["Horror"],"yearFrom":1980,"yearTo":1989}}
+{"results":[{"movieId":"1347","title":"Nightmare on Elm Street, A (1984)","posterUrl":"https://images.metahub.space/poster/medium/tt0087800/img","bannerUrl":"https://images.metahub.space/background/medium/tt0087800/img"}],"appliedFilters":{"genres":["Horror"],"yearFrom":1980,"yearTo":1989}}
 ```
 
-The cached list, once the agent fills it, is a plain list:
+The cached list, once the agent fills it, is a plain list of the same picks.
 
-```json
-[{"movieId":"1258","title":"Shining, The (1980)"},{"movieId":"1994","title":"Poltergeist (1982)"},{"movieId":"1974","title":"Friday the 13th (1980)"}]
-```
+- Poster and banner images come from Stremio MetaHub
+  (`images.metahub.space`), addressed by the IMDb id in MovieLens `links.csv`. No
+  API key is needed. A film MetaHub has no image for gets a 404, and the UI shows
+  its placeholder card instead.
 
 - The search works for any user id; it does not call `users`.
 - An HTTP 503 `{"error":"ai_unavailable","message":"AI service down"}` means
@@ -264,6 +272,8 @@ The cached list, once the agent fills it, is a plain list:
   the ones in the catalog. Invented titles are dropped, but the 4B model often
   misses obvious films (for "cooking movies" it skips Ratatouille and Julie &
   Julia, both in the catalog), so some picks fall back to the most-rated films.
+  With 10 picks this shows: "cooking movies" returns Chef and Food, Inc., then
+  Toy Story, Star Wars and other most-rated films.
 - Requests about actors or directors are unreliable. For "movies with Brad
   Pitt" the model suggested The Revenant and Sicario next to real Brad Pitt
   films, and nothing in the catalog can reject a real film with the wrong cast.
@@ -285,13 +295,15 @@ Done:
 - `users`: registration and login (RS256 JWT), `GET /users/me`, every other
   endpoint denied without a valid token (deny-by-default).
 - Web UI in `frontend/web` (React + Vite): register, login, logout and the profile
-  header with real data through `edge`. Home's For you list, the genre bar, Edit profile
-  and Social search are static previews until their services exist.
+  header with real data through `edge`. Home's Search tab asks the AI (Ask AI) and
+  shows 10 movies with posters. The genre bar, Edit profile and Social search are
+  static previews until their services exist.
 - `ai` wraps Ollama: `POST /extract-filters` and `POST /rank` with the pinned
   `qwen3:4b-instruct-2507-q4_K_M`.
 - `movies` seeds MovieLens `ml-32m` into `movies_db` and serves
   `GET /movies/genres`, `GET /movies/candidates` and `GET /movies/lookup`
-  (catalog rows for the film titles `ai` suggests).
+  (catalog rows for the film titles `ai` suggests). Every row carries poster and
+  banner image URLs.
 - `recommendations` runs the live search
   (`POST /recommendations/users/{id}/search`) and serves the cached picks
   (`GET /recommendations/users/{id}`) from `recs_db`.
@@ -301,7 +313,6 @@ Not started:
 - Profiles and social discovery.
 - The background agent's user source. It still calls `GET /users`, which
   `users` no longer has, so it caches nothing until it reads user profiles.
-- `edge` route and UI for the AI search (the Search tab is a static preview).
 - Resilience on the `edge` clients. No retry, timeout or circuit breaker —
   an upstream failure propagates straight to the caller.
 - `compose.yaml` for the local container deployment.
