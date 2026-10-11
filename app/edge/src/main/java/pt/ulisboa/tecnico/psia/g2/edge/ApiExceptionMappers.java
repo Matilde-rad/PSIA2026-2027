@@ -59,6 +59,11 @@ public class ApiExceptionMappers {
     }
 
     @ServerExceptionMapper
+    public Response aiUnavailable(AiUnavailableException e) {
+        return json(503, new ApiError("ai_unavailable", "the AI is unavailable, try again"));
+    }
+
+    @ServerExceptionMapper
     public Response unexpected(Throwable t) {
         return badGateway(t);
     }

@@ -30,7 +30,7 @@ class HomeScreenResourceTest {
         String token = Tokens.valid(id);
         String bearer = "Bearer " + token;
         when(recommendations.forUser(id, bearer))
-                .thenReturn(Uni.createFrom().item(List.of(new Recommendation("m1", "Arrival", "you like sci-fi"))));
+                .thenReturn(Uni.createFrom().item(List.of(new Recommendation("m1", "Arrival", null, null))));
 
         RestAssured.given()
                 .auth().oauth2(token)

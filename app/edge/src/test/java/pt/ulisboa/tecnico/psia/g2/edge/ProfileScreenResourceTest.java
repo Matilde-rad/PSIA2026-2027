@@ -41,7 +41,7 @@ class ProfileScreenResourceTest {
         when(users.get(id, bearer))
                 .thenReturn(Uni.createFrom().item(new User(id, "alice", "2026-10-08T12:00:00Z")));
         when(recommendations.forUser(id, bearer))
-                .thenReturn(Uni.createFrom().item(List.of(new Recommendation("m1", "Arrival", "you like sci-fi"))));
+                .thenReturn(Uni.createFrom().item(List.of(new Recommendation("m1", "Arrival", null, null))));
 
         Map<String, Object> body = RestAssured.given()
                 .auth().oauth2(token)
