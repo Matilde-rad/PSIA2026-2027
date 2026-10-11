@@ -78,11 +78,12 @@ class SearchPipelineTest {
     }
 
     private static MoviesClient.Candidate row(int id) {
-        return new MoviesClient.Candidate(String.valueOf(id), "Title " + id + " (2000)", 2000, List.of("Drama"), 10);
+        return new MoviesClient.Candidate(String.valueOf(id), "Title " + id + " (2000)", 2000, List.of("Drama"), 10,
+                "poster-" + id, "banner-" + id);
     }
 
     private static MoviesClient.Candidate row(int id, Integer year, String genre) {
-        return new MoviesClient.Candidate(String.valueOf(id), "Title " + id, year, List.of(genre), 10);
+        return new MoviesClient.Candidate(String.valueOf(id), "Title " + id, year, List.of(genre), 10, null, null);
     }
 
     private static AiClient.RankResponse picks(int... ids) {
@@ -107,8 +108,8 @@ class SearchPipelineTest {
         assertEquals(List.of("10", "20", "30"),
                 ai.lastRank.candidates().stream().map(AiClient.RankCandidate::id).toList());
         assertEquals(List.of(
-                new Recommendation("30", "Title 30 (2000)"),
-                new Recommendation("10", "Title 10 (2000)")), response.results());
+                new Recommendation("30", "Title 30 (2000)", "poster-30", "banner-30"),
+                new Recommendation("10", "Title 10 (2000)", "poster-10", "banner-10")), response.results());
         assertEquals(new AppliedFilters(List.of(), null, null), response.appliedFilters());
     }
 
@@ -151,7 +152,7 @@ class SearchPipelineTest {
         assertEquals(List.of(Arrays.asList(List.of("Drama"), 1990, 2005)), movies.calls);
         assertEquals(List.of("50", "20", "10", "30"),
                 ai.lastRank.candidates().stream().map(AiClient.RankCandidate::id).toList());
-        assertEquals(List.of(new Recommendation("50", "Title 50 (2000)")), response.results());
+        assertEquals(List.of(new Recommendation("50", "Title 50", null, null)), response.results());
     }
 
     @Test
@@ -178,6 +179,43 @@ class SearchPipelineTest {
         assertEquals(List.of(), movies.lookups);
         assertEquals(List.of("10", "20"),
                 ai.lastRank.candidates().stream().map(AiClient.RankCandidate::id).toList());
-        assertEquals(List.of(new Recommendation("10", "Title 10 (2000)")), response.results());
+        assertEquals(List.of(new Recommendation("10", "Title 10 (2000)", "poster-10", "banner-10")), response.results());
+    }
+
+    @Test
+    void picksOutsideTheShortlistAreDropped() {
+        movies.rows = List.of(row(10), row(20));
+        ai.rankResponse = picks(99, 20);
+
+        SearchResponse response = pipeline().search("anything");
+
+        assertEquals(List.of(new Recommendation("20", "Title 20 (2000)", "poster-20", "banner-20")), response.results());
+    }
+
+    @Test
+    void requestWithoutGenreOrYearUsesOnlyTheSuggestions() {
+        ai.filters = new AiClient.Filters(List.of(), null, null, List.of("A", "B"));
+        movies.lookupRows = List.of(row(50, 1975, "Thriller"), row(60, 1989, "Sci-Fi"));
+        movies.rows = List.of(row(10));
+        ai.rankResponse = picks(60, 50);
+
+        pipeline().search("movies in the water");
+
+        assertEquals(List.of(), movies.calls);
+        assertEquals(List.of("50", "60"),
+                ai.lastRank.candidates().stream().map(AiClient.RankCandidate::id).toList());
+    }
+
+    @Test
+    void requestWithoutGenreOrYearFallsBackToMostRatedWhenNothingMatched() {
+        ai.filters = new AiClient.Filters(List.of(), null, null, List.of("Invented Film"));
+        movies.rows = List.of(row(10), row(20));
+        ai.rankResponse = picks(10);
+
+        pipeline().search("something good");
+
+        assertEquals(List.of(List.of("Invented Film")), movies.lookups);
+        assertEquals(List.of("10", "20"),
+                ai.lastRank.candidates().stream().map(AiClient.RankCandidate::id).toList());
     }
 }

@@ -29,6 +29,7 @@ public interface MoviesClient {
     @Path("/lookup")
     List<Candidate> lookup(@QueryParam("titles") List<String> titles);
 
-    record Candidate(String id, String title, Integer year, List<String> genres, int ratingCount) {
+    record Candidate(String id, String title, Integer year, List<String> genres, int ratingCount,
+            String posterUrl, String bannerUrl) {
     }
 }

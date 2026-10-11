@@ -68,7 +68,7 @@ class RecommendationAgentTest {
     }
 
     private static Recommendation r(int id) {
-        return new Recommendation(String.valueOf(id), "title-" + id);
+        return new Recommendation(String.valueOf(id), "title-" + id, null, null);
     }
 
     @Test

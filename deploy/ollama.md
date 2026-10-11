@@ -83,10 +83,12 @@ and `edge`'s read timeout must exceed that if `edge` ever proxies search.
   Docker Desktop's Linux VM, not GCP x86. `--cpus=4` is the same quota
   mechanism as `limits.cpu: 4`, but the instruction set and clock differ, so
   re-measure on the real node.
-- The rank rows are an upper bound for today's code: those rank calls generated
-  a one-sentence reason per pick (104 to 158 tokens per 3-pick answer). The
-  reason has since been removed. `/rank` now answers `{picks:[{movieId}]}` with
-  `ai.rank.num-predict=200`, so a rank call today generates fewer tokens.
+- The rank rows are not today's shape: those rank calls picked 3 of 15 films
+  with a one-sentence reason each (104 to 158 tokens per answer). The search now
+  picks 10 of 20 films without reasons (`recs.search.picks`,
+  `recs.search.candidates`), about 190 output tokens and 514 prompt tokens per
+  call (measured on the M4 with Metal), under `ai.rank.num-predict=400`. Expect
+  a CPU rank call to take longer than the rows above; re-measure.
 - The distinct-prompt rows are the realistic live-search figure.
 
 ## Config the other services need

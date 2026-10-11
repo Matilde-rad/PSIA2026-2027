@@ -2,7 +2,11 @@ package pt.ulisboa.tecnico.psia.g2.recommendations;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -50,8 +54,14 @@ public class SearchPipeline {
         List<MoviesClient.Candidate> suggested = filters.suggestions() == null || filters.suggestions().isEmpty()
                 ? List.of()
                 : movies.lookup(filters.suggestions());
-        List<MoviesClient.Candidate> popular =
-                movies.candidates(filters.genres(), filters.yearFrom(), filters.yearTo(), candidateCount);
+        // A request with no genre and no year ("movies in the water") would be padded with the
+        // most-rated films of all time, which have nothing to do with it: use only the suggestions.
+        boolean themeOnly = (filters.genres() == null || filters.genres().isEmpty())
+                && filters.yearFrom() == null && filters.yearTo() == null;
+        List<MoviesClient.Candidate> popular = themeOnly && !suggested.isEmpty()
+                ? List.of()
+                : movies.candidates(filters.genres(), filters.yearFrom(), filters.yearTo(), candidateCount);
+
         Set<String> seen = new HashSet<>();
         List<MoviesClient.Candidate> found = Stream.concat(suggested.stream().filter(c -> fits(c, filters)), popular.stream())
                 .filter(c -> seen.add(c.id()))
@@ -66,8 +76,13 @@ public class SearchPipeline {
                 .toList();
         AiClient.RankResponse picks = ai.rank(new AiClient.RankRequest(text, pickCount, rankCandidates));
 
-        List<Recommendation> results =
-                picks.picks().stream().map(p -> new Recommendation(p.movieId(), p.title())).toList();
+        Map<String, MoviesClient.Candidate> byId =
+                found.stream().collect(Collectors.toMap(MoviesClient.Candidate::id, Function.identity()));
+        List<Recommendation> results = picks.picks().stream()
+                .map(p -> byId.get(p.movieId()))
+                .filter(Objects::nonNull)
+                .map(c -> new Recommendation(c.id(), c.title(), c.posterUrl(), c.bannerUrl()))
+                .toList();
         if (results.isEmpty()) {
             throw new AiUnavailableException(null);
         }
