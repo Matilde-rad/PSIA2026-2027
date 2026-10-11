@@ -38,6 +38,7 @@ public class MovieLensSeeder {
     private static final String ZIP_NAME = "ml-32m.zip";
     private static final String MOVIES_ENTRY = "ml-32m/movies.csv";
     private static final String RATINGS_ENTRY = "ml-32m/ratings.csv";
+    private static final String LINKS_ENTRY = "ml-32m/links.csv";
     private static final int BATCH_SIZE = 1000;
 
     @Inject
@@ -58,9 +59,10 @@ public class MovieLensSeeder {
             }
             Path zip = ensureZip();
             Map<Integer, Integer> ratingCounts = new HashMap<>();
+            Map<Integer, String> imdbIds = new HashMap<>();
             List<MovieLensCsv.MovieRow> rows = new ArrayList<>();
-            readZip(zip, ratingCounts, rows);
-            insert(connection, rows, ratingCounts);
+            readZip(zip, ratingCounts, imdbIds, rows);
+            insert(connection, rows, ratingCounts, imdbIds);
             long withoutYear = rows.stream().filter(r -> r.year() == null).count();
             long withoutGenres = rows.stream().filter(r -> r.genres().isEmpty()).count();
             LOG.infof("Seeded %d movies (%d without year, %d without genres)", rows.size(), withoutYear, withoutGenres);
@@ -101,8 +103,8 @@ public class MovieLensSeeder {
         return zip;
     }
 
-    private static void readZip(Path zip, Map<Integer, Integer> ratingCounts, List<MovieLensCsv.MovieRow> rows)
-            throws IOException {
+    private static void readZip(Path zip, Map<Integer, Integer> ratingCounts, Map<Integer, String> imdbIds,
+            List<MovieLensCsv.MovieRow> rows) throws IOException {
         boolean sawMovies = false;
         boolean sawRatings = false;
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zip), StandardCharsets.UTF_8)) {
@@ -122,6 +124,17 @@ public class MovieLensSeeder {
                         String[] f = line.split(",");
                         ratingCounts.merge(Integer.parseInt(f[1]), 1, Integer::sum);
                     }
+                } else if (LINKS_ENTRY.equals(entry.getName())) {
+                    reader.readLine(); // header
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (line.isEmpty()) {
+                            continue;
+                        }
+                        // links.csv has no quote characters either: movieId,imdbId,tmdbId.
+                        String[] f = line.split(",");
+                        imdbIds.put(Integer.parseInt(f[0]), "tt" + f[1]);
+                    }
                 } else if (MOVIES_ENTRY.equals(entry.getName())) {
                     sawMovies = true;
                     reader.readLine(); // header
@@ -139,12 +152,12 @@ public class MovieLensSeeder {
         }
     }
 
-    private static void insert(Connection connection, List<MovieLensCsv.MovieRow> rows, Map<Integer, Integer> ratingCounts)
-            throws SQLException {
+    private static void insert(Connection connection, List<MovieLensCsv.MovieRow> rows, Map<Integer, Integer> ratingCounts,
+            Map<Integer, String> imdbIds) throws SQLException {
         boolean previousAutoCommit = connection.getAutoCommit();
         connection.setAutoCommit(false);
         try (PreparedStatement ps = connection.prepareStatement(
-                "INSERT INTO movie (id, title, year, genres, rating_count, title_key) VALUES (?, ?, ?, ?, ?, ?)")) {
+                "INSERT INTO movie (id, title, year, genres, rating_count, title_key, imdb_id) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
             int pending = 0;
             for (MovieLensCsv.MovieRow row : rows) {
                 ps.setInt(1, row.id());
@@ -157,6 +170,7 @@ public class MovieLensSeeder {
                 ps.setArray(4, connection.createArrayOf("text", row.genres().toArray()));
                 ps.setInt(5, ratingCounts.getOrDefault(row.id(), 0));
                 ps.setString(6, MovieLensCsv.titleKey(row.title()));
+                ps.setString(7, imdbIds.get(row.id()));
                 ps.addBatch();
                 if (++pending % BATCH_SIZE == 0) {
                     ps.executeBatch();
