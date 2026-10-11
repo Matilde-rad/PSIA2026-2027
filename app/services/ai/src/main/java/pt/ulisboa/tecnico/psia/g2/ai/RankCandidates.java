@@ -16,8 +16,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @ApplicationScoped
 public class RankCandidates {
 
-    private static final int DEFAULT_LIMIT = 3;
-
     public record Request(String request, Integer limit, List<Candidate> candidates) {
     }
 
@@ -77,9 +75,7 @@ public class RankCandidates {
         }
         List<Candidate> candidates = request.candidates();
 
-        // TODO is this really needed?
-        int limit = request.limit() == null || request.limit() <= 0 ? DEFAULT_LIMIT : request.limit();
-        limit = Math.min(limit, candidates.size());
+        int limit = Math.min(request.limit(), candidates.size());
 
         StringBuilder user = new StringBuilder();
         user.append("<request>").append(request.request() == null ? "" : request.request()).append("</request>\n");
