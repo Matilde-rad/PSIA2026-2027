@@ -16,29 +16,18 @@ import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 public class AiResource {
 
     @Inject
-    ExtractFilters extractFilters;
-
-    @Inject
-    RankCandidates rankCandidates;
+    EmbedTexts embedTexts;
 
     @POST
-    @Path("/extract-filters")
+    @Path("/embed/query")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public ExtractFilters.Filters extractFilters(ExtractFilters.Request request) {
-        return extractFilters.extract(request);
-    }
-
-    @POST
-    @Path("/rank")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
-    public RankCandidates.Response rank(RankCandidates.Request request) {
-        return rankCandidates.rank(request);
+    public EmbedTexts.Embedding embedQuery(EmbedTexts.QueryRequest request) {
+        return embedTexts.query(request);
     }
 
     @ServerExceptionMapper
-    public RestResponse<Map<String, String>> modelUnavailable(OllamaWrapper.ModelUnavailableException e) {
+    public RestResponse<Map<String, String>> modelUnavailable(EmbedTexts.ModelUnavailableException e) {
         return RestResponse.status(Response.Status.SERVICE_UNAVAILABLE, Map.of("error", "model_unavailable"));
     }
 }
