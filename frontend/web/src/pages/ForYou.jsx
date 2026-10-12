@@ -57,7 +57,7 @@ export default function ForYou() {
       <Carousel items={recommendations} />
       <div className="movie-grid">
         {recommendations.map((rec) => (
-          <MovieCard key={rec.movieId} title={rec.title} posterUrl={rec.posterUrl} />
+          <MovieCard key={rec.movieId} movieId={rec.movieId} title={rec.title} posterUrl={rec.posterUrl} />
         ))}
       </div>
     </>
@@ -78,7 +78,7 @@ function Carousel({ items }) {
   const current = items[index]
   return (
     <section className="carousel" style={{ '--slide-ms': `${SLIDE_MS}ms` }}>
-      <Banner key={current.movieId} title={current.title} bannerUrl={current.bannerUrl} />
+      <Banner key={current.movieId} movieId={current.movieId} title={current.title} bannerUrl={current.bannerUrl} />
       {items.length > 1 && (
         <div className="carousel-lines">
           {items.map((rec, i) => (
@@ -97,12 +97,12 @@ function Carousel({ items }) {
   )
 }
 
-function Banner({ title, bannerUrl }) {
+function Banner({ movieId, title, bannerUrl }) {
   const [failed, setFailed] = useState(false)
   return (
-    <article className="banner" style={{ '--poster-hue': hueFor(title) }}>
+    <Link className="banner" to={`/movie/${movieId}`} style={{ '--poster-hue': hueFor(title) }}>
       {bannerUrl && !failed && <img src={bannerUrl} alt="" loading="lazy" onError={() => setFailed(true)} />}
       <span className="banner-title">{prettyTitle(title)}</span>
-    </article>
+    </Link>
   )
 }

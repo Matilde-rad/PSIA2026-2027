@@ -37,7 +37,10 @@ without them a search shows "The AI is unavailable right now".
 Vite's dev server forwards `/auth`, `/me` and `/screens` to http://127.0.0.1:8080
 (`vite.config.js`). The browser sees one origin, so edge needs no CORS.
 The screens edge serves are `/screens/home` (Home, For you tab), `/screens/search`
-(Home, Search tab), `/screens/social` (Social) and `/screens/profile/ID`. Following
+(Home, Search tab), `/screens/feed` (Feed), `/screens/watchlist` (Watchlist),
+`/screens/movie/ID` (a movie's page), `/screens/social` (Social) and
+`/screens/profile/ID` (plus `/activity` under it). The watchlist changes through
+`PUT` and `DELETE /me/watchlist/MOVIE_ID`. Following
 goes through `PUT` and `DELETE /me/following/ID`. The profile form loads its genre
 options from `/screens/genres` (the movie catalog's genres), suggests movie titles
 from `/screens/movies/search` and saves through `PUT /me/profile`.
@@ -50,14 +53,21 @@ Everything is real; there are no static previews left.
 
 - Register (you are logged in right after; username and password checked as you type).
 - Welcome page right after registering (`/welcome`): display name, bio, favorite
-  genres, directors and movies; can be skipped.
+  genres and movies; can be skipped. Directors are asked only on Edit profile.
 - Login and logout, and redirects for logged-out and logged-in users.
 - Profile for any user id at `/profile/ID`: header with follower and following counts
   (click one for the list), bio, favorite genres and directors, favorite movies as
-  posters; Follow on other people's, Edit profile on your own.
+  posters, and recent activity (watchlist additions, likes and dislikes); Follow on
+  other people's, Edit profile on your own.
+- Movie page at `/movie/ID`, opened by clicking any movie: banner, poster, year,
+  running time, IMDb rating, genres, synopsis, directors and cast (from Stremio
+  Cinemeta through `movies`), and a "+ To watch" button.
+- Watchlist: the movies to watch, each with "Liked it", "Didn't like it" and
+  Remove, and below them the watched ones with their verdict.
+- Feed: what the people you follow added to their watchlist, liked or disliked.
 - Favorite movies are picked from the catalog: type part of a title and choose a
   suggestion (arrow keys and Enter work).
-- Social: people with your taste (shared genres, directors and favorite movies) and
+- Social: the people you follow, then people with your taste (shared genres, directors and favorite movies) and
   search by name, each with a Follow button.
 - Home: For you, your recommendations as a banner carousel and grid (`/screens/home`).
 - Home: Search, Ask AI returns 12 movies with posters (`/screens/search`).
@@ -75,10 +85,12 @@ Log out only clears the browser.
 - `src/api.js` — the only place that calls edge.
 - `src/auth.jsx` — session state and login, register, logout.
 - `src/pages/` — one file per screen, plus `ForYou.jsx` (Home's For you tab).
-- `src/components/` — shared pieces: Avatar, MovieCard, `ProfileForm` with its
+- `src/components/` — shared pieces: Avatar, MovieCard, `WatchButtons` (to watch,
+  liked, disliked), `ActivityList` (Feed and profile), `ProfileForm` with its
   `TagInput` and `MovieInput` (title autocomplete), and `PersonCard`, `FollowButton`
   and `PeopleDialog` for the social parts.
 - `src/titles.js` — shows "Matrix, The (1999)" as "The Matrix (1999)".
+- `src/time.js` — "3 h ago" for activity.
 - `src/styles.css` — all styles; design tokens at the top.
 
 There are no frontend tests yet (D-66); the phase was checked by a manual walkthrough.

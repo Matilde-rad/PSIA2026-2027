@@ -69,7 +69,7 @@ function Results({ result }) {
   return (
     <div className="movie-grid">
       {result.results.map((rec) => (
-        <MovieCard key={rec.movieId} title={rec.title} posterUrl={rec.posterUrl} />
+        <MovieCard key={rec.movieId} movieId={rec.movieId} title={rec.title} posterUrl={rec.posterUrl} />
       ))}
     </div>
   )

@@ -9,6 +9,8 @@ const DEBOUNCE_MS = 250
 export default function SocialPage() {
   const { user } = useAuth()
   const [text, setText] = useState('')
+  // bumped when a suggestion is followed or unfollowed, so the list above it reloads
+  const [followed, setFollowed] = useState(0)
   const query = text.trim()
   const searching = query.length >= 2
 
@@ -32,7 +34,14 @@ export default function SocialPage() {
           onChange={(e) => setText(e.target.value)}
         />
       </label>
-      {searching ? <SearchResults query={query} /> : <Suggestions userId={user.id} />}
+      {searching ? (
+        <SearchResults query={query} />
+      ) : (
+        <>
+          <Following userId={user.id} version={followed} />
+          <Suggestions userId={user.id} onFollowChange={() => setFollowed(followed + 1)} />
+        </>
+      )}
     </>
   )
 }
@@ -86,7 +95,54 @@ function SearchResults({ query }) {
   )
 }
 
-function Suggestions({ userId }) {
+function Following({ userId, version }) {
+  const [people, setPeople] = useState(null)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let ignore = false
+    setError(false)
+    apiFetch(`/screens/profile/${userId}/following`)
+      .then((data) => {
+        if (!ignore) setPeople(data)
+      })
+      .catch((err) => {
+        if (!ignore && err.status !== 401) setError(true)
+      })
+    return () => {
+      ignore = true
+    }
+  }, [userId, version])
+
+  return (
+    <section className="profile-section">
+      <div className="section-header">
+        <h2 className="section-title">People you follow</h2>
+      </div>
+      {error ? (
+        <p className="state-text">Something went wrong, try again.</p>
+      ) : !people ? (
+        <p className="state-text">Loading…</p>
+      ) : people.length === 0 ? (
+        <div className="state-message">
+          <p className="state-text">You don't follow anyone yet.</p>
+        </div>
+      ) : (
+        <div className="user-grid">
+          {people.map((person) => (
+            <PersonCard
+              key={person.id}
+              person={person}
+              onFollowChange={(p, now) => setPeople(withFollow(people, p, now))}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function Suggestions({ userId, onFollowChange }) {
   const [screen, setScreen] = useState(null)
   const [error, setError] = useState(false)
   const [attempt, setAttempt] = useState(0)
@@ -144,9 +200,10 @@ function Suggestions({ userId }) {
             <PersonCard
               key={person.id}
               person={person}
-              onFollowChange={(p, now) =>
+              onFollowChange={(p, now) => {
                 setScreen({ ...screen, suggestions: withFollow(screen.suggestions, p, now) })
-              }
+                onFollowChange()
+              }}
             />
           ))}
         </div>

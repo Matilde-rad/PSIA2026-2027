@@ -8,6 +8,9 @@ import HomePage from './pages/HomePage.jsx'
 import SocialPage from './pages/SocialPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import WelcomePage from './pages/WelcomePage.jsx'
+import MoviePage from './pages/MoviePage.jsx'
+import WatchlistPage from './pages/WatchlistPage.jsx'
+import FeedPage from './pages/FeedPage.jsx'
 
 function RequireAuth() {
   const { user } = useAuth()
@@ -42,6 +45,8 @@ function Layout() {
           </Link>
           <nav className="nav-tabs">
             <NavLink className="nav-tab" to="/" end>Home</NavLink>
+            <NavLink className="nav-tab" to="/feed">Feed</NavLink>
+            <NavLink className="nav-tab" to="/watchlist">Watchlist</NavLink>
             <NavLink className="nav-tab" to="/social">Social</NavLink>
             <NavLink className="nav-tab" to={`/profile/${user.id}`}>Profile</NavLink>
           </nav>
@@ -68,6 +73,9 @@ export default function App() {
         <Route path="/welcome" element={<WelcomePage />} />
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/feed" element={<FeedPage />} />
+          <Route path="/watchlist" element={<WatchlistPage />} />
+          <Route path="/movie/:id" element={<MoviePage />} />
           <Route path="/social" element={<SocialPage />} />
           <Route path="/profile/:id" element={<ProfilePage />} />
         </Route>

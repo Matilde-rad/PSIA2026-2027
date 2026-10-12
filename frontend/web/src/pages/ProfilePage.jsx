@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { apiFetch } from '../api.js'
 import { useAuth } from '../auth.jsx'
+import ActivityList from '../components/ActivityList.jsx'
 import Avatar from '../components/Avatar.jsx'
 import FollowButton from '../components/FollowButton.jsx'
 import MovieCard from '../components/MovieCard.jsx'
@@ -170,12 +171,52 @@ export default function ProfilePage() {
           </div>
           <div className="movie-grid">
             {screen.favoriteMovies.map((movie) => (
-              <MovieCard key={movie.movieId} title={movie.title} posterUrl={movie.posterUrl} />
+              <MovieCard key={movie.movieId} movieId={movie.movieId} title={movie.title} posterUrl={movie.posterUrl} />
             ))}
           </div>
         </section>
       )}
+
+      {!editing && <RecentActivity userId={screen.id} own={own} name={name} />}
     </>
+  )
+}
+
+// Loaded on its own, after the profile: a profile is worth showing even if this fails.
+function RecentActivity({ userId, own, name }) {
+  const [items, setItems] = useState(null)
+
+  useEffect(() => {
+    let ignore = false
+    setItems(null)
+    apiFetch(`/screens/profile/${encodeURIComponent(userId)}/activity`)
+      .then((data) => {
+        if (!ignore) setItems(data)
+      })
+      .catch(() => {})
+    return () => {
+      ignore = true
+    }
+  }, [userId])
+
+  if (!items) return null
+  return (
+    <section className="profile-section">
+      <div className="section-header">
+        <h2 className="section-title">Recent activity</h2>
+      </div>
+      {items.length === 0 ? (
+        <div className="state-message">
+          <p className="state-text">
+            {own
+              ? 'Movies you add to your watchlist, like or dislike show up here.'
+              : `${name} hasn't added or rated any movies yet.`}
+          </p>
+        </div>
+      ) : (
+        <ActivityList items={items} />
+      )}
+    </section>
   )
 }
 

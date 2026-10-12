@@ -24,6 +24,7 @@ export default function WelcomePage() {
           this later on your profile.
         </p>
         <ProfileForm
+          askDirectors={false}
           submitLabel="Save and continue"
           onSaved={done}
           secondary={

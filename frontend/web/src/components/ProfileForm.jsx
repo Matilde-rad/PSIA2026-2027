@@ -7,8 +7,9 @@ const BIO_MAX = 500
 
 // Creates or replaces the logged-in user's profile. `secondary` is the button next to Save
 // (Skip on the welcome page, Cancel on the profile page). The profile stores favorite movies as
-// catalog ids, so the movies to show for them come separately in `initialMovies`.
-export default function ProfileForm({ initial, initialMovies, submitLabel, onSaved, secondary }) {
+// catalog ids, so the movies to show for them come separately in `initialMovies`. The welcome
+// page passes askDirectors={false} to keep the first form short.
+export default function ProfileForm({ initial, initialMovies, submitLabel, onSaved, secondary, askDirectors = true }) {
   const [displayName, setDisplayName] = useState(initial?.displayName ?? '')
   const [bio, setBio] = useState(initial?.bio ?? '')
   const [genres, setGenres] = useState(initial?.favoriteGenres ?? [])
@@ -130,13 +131,15 @@ export default function ProfileForm({ initial, initialMovies, submitLabel, onSav
           <span className="field-error">Could not load the genre list. You can still save the rest.</span>
         )}
       </div>
-      <TagInput
-        label="Favorite directors"
-        placeholder="Type a name and press Enter"
-        hint="Press Enter after each name."
-        values={directors}
-        onChange={setDirectors}
-      />
+      {askDirectors && (
+        <TagInput
+          label="Favorite directors"
+          placeholder="Type a name and press Enter"
+          hint="Press Enter after each name."
+          values={directors}
+          onChange={setDirectors}
+        />
+      )}
       <MovieInput
         label="Favorite movies"
         hint="Pick from the suggestions. We recommend movies like these, not these ones."
