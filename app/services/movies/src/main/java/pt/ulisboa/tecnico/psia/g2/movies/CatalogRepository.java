@@ -39,6 +39,8 @@ public class CatalogRepository {
     private static final String BY_IDS_SQL =
             "SELECT id, title, year, genres, rating_count, imdb_id FROM movie WHERE id = ANY(?)";
 
+    private static final String IMDB_ID_SQL = "SELECT imdb_id FROM movie WHERE id = ?";
+
     static final int MAX_SEARCH_WORDS = 6;
 
     private static final String SIMILAR_SQL = """
@@ -159,6 +161,18 @@ public class CatalogRepository {
             Map<String, MovieSummary> found = new HashMap<>();
             summaries(ps).forEach(m -> found.put(m.id(), m));
             return ids.stream().distinct().map(id -> found.get(String.valueOf(id))).filter(Objects::nonNull).toList();
+        } catch (SQLException e) {
+            throw new IllegalStateException("Catalog query failed", e);
+        }
+    }
+
+    // null when the movie is unknown or MovieLens has no IMDb link for it
+    public String imdbId(int id) {
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(IMDB_ID_SQL)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
         } catch (SQLException e) {
             throw new IllegalStateException("Catalog query failed", e);
         }

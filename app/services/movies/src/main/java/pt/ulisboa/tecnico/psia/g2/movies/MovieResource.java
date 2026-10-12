@@ -3,8 +3,10 @@ package pt.ulisboa.tecnico.psia.g2.movies;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
@@ -29,6 +31,36 @@ public class MovieResource {
 
     @Inject
     CatalogRepository catalog;
+
+    @Inject
+    MovieMetaRepository metas;
+
+    @Inject
+    Cinemeta cinemeta;
+
+    // One movie with its synopsis, running time, cast, directors and IMDb rating. Those come from
+    // Stremio Cinemeta on the first request and from movies_db afterwards. A movie Cinemeta does
+    // not know, or a failed call, still answers with the catalog data.
+    @GET
+    @Path("/{id: [0-9]{1,9}}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public MovieDetails details(@PathParam("id") int id) {
+        MovieSummary movie = catalog.byIds(List.of(id)).stream().findFirst().orElseThrow(NotFoundException::new);
+        MovieMeta meta = metas.find(id).orElseGet(() -> fetchMeta(id));
+        return MovieDetails.of(movie, meta);
+    }
+
+    private MovieMeta fetchMeta(int id) {
+        String imdbId = catalog.imdbId(id);
+        if (imdbId == null) {
+            return null;
+        }
+        MovieMeta meta = cinemeta.fetch(imdbId).orElse(null);
+        if (meta != null) {
+            metas.store(id, meta);
+        }
+        return meta;
+    }
 
     @POST
     @Path("/similar")
