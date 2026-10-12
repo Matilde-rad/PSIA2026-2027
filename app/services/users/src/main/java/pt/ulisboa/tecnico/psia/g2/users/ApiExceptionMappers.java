@@ -105,6 +105,7 @@ public class ApiExceptionMappers {
         }
         return switch (status) {
             case 401 -> "unauthorized";
+            case 403 -> "forbidden";
             case 404 -> "not_found";
             case 409 -> "conflict";
             default -> "validation";

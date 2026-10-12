@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
-// Account data only. Profile data (bio, favorite genres) lives in the profile service.
+// Account data only. Profile data (bio, favorite genres) lives in Profile.
 @Entity
 @Table(name = "users")
 public class User {

@@ -39,3 +39,4 @@ infra/ansible/inventory.ini
 app/keys/dev/
 !app/services/users/src/test/resources/test-*.pem
 !app/edge/src/test/resources/test-*.pem
+javac.*.args

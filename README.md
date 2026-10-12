@@ -4,8 +4,8 @@ PSIA 2026/27 project, group 2.
 
 > **Status:** registration, login and the web UI run locally, and so does the AI
 > and recommendations slice (`ai`, `movies`, `recommendations`; see *AI and
-> recommendations slice: run locally*). Profiles, social discovery and the
-> deployment are not built yet. See *Current state* below.
+> recommendations slice: run locally*). Profiles and social discovery exist in
+> the backend only; the deployment is not built yet. See *Current state* below.
 
 Users register, create a profile describing their interests, and ask the
 platform's AI for movie recommendations matching that profile. Users can browse
@@ -130,6 +130,22 @@ Every `users` endpoint except `POST /users` and `POST /auth/login` needs a token
 Call register and login **without** an `Authorization` header: a stale or invalid
 token sent to them gets a 401.
 
+Profiles live in `users` too (`/profiles`). A profile has the same id as its
+account; anyone logged in can read profiles, only the owner can create, change
+or delete theirs (403 otherwise):
+
+```sh
+curl -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"displayName":"Alice","bio":"likes films","favoriteGenres":["Horror"],"favoriteDirectors":["Ridley Scott"],"favoriteMovies":["Alien"]}' \
+  http://127.0.0.1:8081/profiles                                             # the caller's own profile
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/profiles/$ID   # ID = user.id from login
+curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8081/profiles?genre=horror&director=scott'
+```
+
+`PUT /profiles/{id}` replaces a profile and `DELETE /profiles/{id}` removes it.
+The `genre` and `director` filters are case-insensitive substring matches, done
+in Postgres.
+
 ```sh
 curl http://127.0.0.1:8082/movies/embeddings
 curl http://127.0.0.1:8083/recommendations/users/42
@@ -148,6 +164,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/me
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID
 curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"text":"a horror movie from the 80s"}' http://127.0.0.1:8080/screens/search
+curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8080/screens/discover?genre=horror'
 ```
 
 - Register and login are the only public routes; everything else needs the token.
@@ -163,6 +180,8 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   When the AI cannot answer it gives 503 `ai_unavailable`.
 - On your own screen `edge` calls `users` and `recommendations` concurrently via
   `Uni.combine()`.
+- `/screens/discover` forwards its `genre` and `director` filters to `GET /profiles`
+  in `users`.
 
 Web UI: with `users`, `recommendations` and `edge` running (plus `ai`, `movies`
 and Ollama for the Search tab), run
@@ -172,7 +191,7 @@ Details in `frontend/web/README.md`.
 `users`, `movies` and `recommendations` expose `/q/health`, `/q/openapi` and
 `/q/swagger-ui` (the last in dev only).
 `ai` and `edge` carry neither the health nor the OpenAPI extension, so they have
-none of them.
+none of them. `users` also exposes Prometheus metrics at `/q/metrics` (Micrometer).
 
 ## AI and recommendations slice: run locally
 
@@ -303,6 +322,9 @@ Done:
   header with real data through `edge`. Home's Search tab asks the AI (Ask AI) and
   shows 12 movies with posters. The genre bar, Edit profile and Social search are
   static previews until their services exist.
+- Profile CRUD (`/profiles`) in `users`, persisted in `users_db`, owner-only writes.
+- Social discovery: `GET /profiles?genre=&director=` filters profiles by favourite
+  genre or director, exposed to the UI as `edge`'s `/screens/discover`.
 - `ai` wraps Ollama: `POST /embed/query` embeds a request with
   `qwen3-embedding:0.6b`.
 - `movies` seeds MovieLens `ml-32m` into `movies_db`, loads the precomputed
@@ -314,7 +336,8 @@ Done:
 
 Not started:
 
-- Profiles and social discovery.
+- Profiles and social discovery in the web UI (Edit profile and Social search are
+  still static previews), and profile data on `edge`'s profile screen.
 - The background agent's user source. It still calls `GET /users`, which
   `users` no longer has, so it caches nothing until it reads user profiles.
 - Resilience on the `edge` clients. No retry, timeout or circuit breaker —
