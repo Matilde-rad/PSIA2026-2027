@@ -8,6 +8,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
@@ -34,10 +35,21 @@ public interface MoviesClient {
     @Consumes(MediaType.APPLICATION_JSON)
     Uni<List<CatalogMovie>> lookup(LookupRequest request);
 
+    // one movie with its synopsis, running time, cast and directors; 404 when the catalog lacks it
+    @GET
+    @Path("/{id}")
+    Uni<MovieDetails> details(@PathParam("id") String id);
+
     record LookupRequest(List<String> ids) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record CatalogMovie(String id, String title, Integer year, String posterUrl, String bannerUrl) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record MovieDetails(String id, String title, Integer year, List<String> genres, String posterUrl,
+            String bannerUrl, String description, Integer runtimeMinutes, List<String> cast, List<String> directors,
+            Double imdbRating) {
     }
 }

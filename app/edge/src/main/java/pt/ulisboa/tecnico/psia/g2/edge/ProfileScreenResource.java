@@ -35,6 +35,10 @@ public class ProfileScreenResource {
 
     @Inject
     @RestClient
+    ActivityClient activity;
+
+    @Inject
+    @RestClient
     RecommendationsClient recommendations;
 
     @Inject
@@ -42,6 +46,9 @@ public class ProfileScreenResource {
 
     @Inject
     People people;
+
+    @Inject
+    Activities activities;
 
     @Inject
     JsonWebToken jwt;
@@ -78,6 +85,14 @@ public class ProfileScreenResource {
     public Uni<List<PersonView>> following(@PathParam("id") String id,
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
         return social.following(uuid(id), authorization).chain(people::views);
+    }
+
+    // what this user did with movies lately, newest first
+    @GET
+    @Path("/{id}/activity")
+    public Uni<List<ActivityView>> activity(@PathParam("id") String id,
+            @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
+        return activity.of(uuid(id), authorization).chain(activities::views);
     }
 
     // The profile stores movie ids; the screen shows titles and posters. If movies cannot answer
