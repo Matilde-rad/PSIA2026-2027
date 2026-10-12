@@ -1,7 +1,5 @@
 package pt.ulisboa.tecnico.psia.g2.recommendations;
 
-import java.util.List;
-
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -16,28 +14,12 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 public interface AiClient {
 
     @POST
-    @Path("/extract-filters")
-    Filters extractFilters(ExtractRequest request);
+    @Path("/embed/query")
+    Embedding embedQuery(EmbedQuery request);
 
-    @POST
-    @Path("/rank")
-    RankResponse rank(RankRequest request);
-
-    record ExtractRequest(String text, List<String> allowedGenres) {
+    record EmbedQuery(String text) {
     }
 
-    record Filters(List<String> genres, Integer yearFrom, Integer yearTo, List<String> suggestions) {
-    }
-
-    record RankRequest(String request, int limit, List<RankCandidate> candidates) {
-    }
-
-    record RankCandidate(String id, String title, List<String> genres) {
-    }
-
-    record RankResponse(List<Pick> picks) {
-    }
-
-    record Pick(String movieId, String title) {
+    record Embedding(float[] embedding) {
     }
 }

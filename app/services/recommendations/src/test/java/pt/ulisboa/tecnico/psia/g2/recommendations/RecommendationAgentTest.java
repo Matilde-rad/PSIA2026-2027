@@ -12,8 +12,6 @@ import java.util.Map;
 import jakarta.ws.rs.ProcessingException;
 import org.junit.jupiter.api.Test;
 
-import pt.ulisboa.tecnico.psia.g2.recommendations.SearchResponse.AppliedFilters;
-
 class RecommendationAgentTest {
 
     static class FakeUsers implements UsersClient {
@@ -29,7 +27,7 @@ class RecommendationAgentTest {
         }
     }
 
-    static class FakePipeline extends SearchPipeline {
+    static class FakeSearch extends SemanticSearch {
         final List<String> searched = new ArrayList<>();
         final Map<String, List<Recommendation>> results = new HashMap<>();
         final Map<String, RuntimeException> failures = new HashMap<>();
@@ -40,7 +38,7 @@ class RecommendationAgentTest {
             if (failures.containsKey(text)) {
                 throw failures.get(text);
             }
-            return new SearchResponse(results.get(text), new AppliedFilters(List.of(), null, null));
+            return new SearchResponse(results.get(text));
         }
     }
 
@@ -57,13 +55,13 @@ class RecommendationAgentTest {
     }
 
     private final FakeUsers users = new FakeUsers();
-    private final FakePipeline pipeline = new FakePipeline();
+    private final FakeSearch search = new FakeSearch();
     private final FakeCache cache = new FakeCache();
     private final RecommendationAgent agent = new RecommendationAgent();
 
     RecommendationAgentTest() {
         agent.users = users;
-        agent.pipeline = pipeline;
+        agent.semantic = search;
         agent.cache = cache;
     }
 
@@ -77,13 +75,13 @@ class RecommendationAgentTest {
                 new UsersClient.UserTaste("1", "a"),
                 new UsersClient.UserTaste("2", "b"),
                 new UsersClient.UserTaste("3", "c"));
-        pipeline.results.put("a", List.of(r(10)));
-        pipeline.failures.put("b", new SearchPipeline.AiUnavailableException(null));
-        pipeline.results.put("c", List.of(r(30), r(31)));
+        search.results.put("a", List.of(r(10)));
+        search.failures.put("b", new SemanticSearch.AiUnavailableException(null));
+        search.results.put("c", List.of(r(30), r(31)));
 
         assertDoesNotThrow(agent::refreshAll);
 
-        assertEquals(List.of("a", "b", "c"), pipeline.searched);
+        assertEquals(List.of("a", "b", "c"), search.searched);
         assertEquals(
                 List.of(
                         new FakeCache.Write("1", List.of(r(10))),
@@ -92,13 +90,33 @@ class RecommendationAgentTest {
     }
 
     @Test
-    void emptyResultsAreNeverWritten() {
-        users.rows = List.of(new UsersClient.UserTaste("1", "a"));
-        pipeline.results.put("a", List.of());
+    void usersWithTheSameTasteShareOneSearch() {
+        users.rows = List.of(
+                new UsersClient.UserTaste("1", "a"),
+                new UsersClient.UserTaste("2", "a"),
+                new UsersClient.UserTaste("3", "b"));
+        search.results.put("a", List.of(r(10)));
+        search.results.put("b", List.of(r(20)));
 
         assertDoesNotThrow(agent::refreshAll);
 
-        assertEquals(List.of("a"), pipeline.searched);
+        assertEquals(List.of("a", "b"), search.searched);
+        assertEquals(
+                List.of(
+                        new FakeCache.Write("1", List.of(r(10))),
+                        new FakeCache.Write("2", List.of(r(10))),
+                        new FakeCache.Write("3", List.of(r(20)))),
+                cache.writes);
+    }
+
+    @Test
+    void emptyResultsAreNeverWritten() {
+        users.rows = List.of(new UsersClient.UserTaste("1", "a"));
+        search.results.put("a", List.of());
+
+        assertDoesNotThrow(agent::refreshAll);
+
+        assertEquals(List.of("a"), search.searched);
         assertTrue(cache.writes.isEmpty());
     }
 
@@ -108,7 +126,7 @@ class RecommendationAgentTest {
 
         assertDoesNotThrow(agent::refreshAll);
 
-        assertTrue(pipeline.searched.isEmpty());
+        assertTrue(search.searched.isEmpty());
         assertTrue(cache.writes.isEmpty());
     }
 }

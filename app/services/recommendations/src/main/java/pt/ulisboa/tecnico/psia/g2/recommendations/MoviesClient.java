@@ -2,10 +2,10 @@ package pt.ulisboa.tecnico.psia.g2.recommendations;
 
 import java.util.List;
 
-import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
@@ -14,22 +14,15 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 @RegisterRestClient(configKey = "movies")
 public interface MoviesClient {
 
-    @GET
-    @Path("/genres")
-    List<String> genres();
+    @POST
+    @Path("/similar")
+    @Consumes(MediaType.APPLICATION_JSON)
+    List<Similar> similar(SimilarRequest request);
 
-    @GET
-    @Path("/candidates")
-    List<Candidate> candidates(@QueryParam("genres") List<String> genres,
-            @QueryParam("yearFrom") Integer yearFrom,
-            @QueryParam("yearTo") Integer yearTo,
-            @QueryParam("limit") int limit);
+    record SimilarRequest(float[] embedding, int limit, int minRatings) {
+    }
 
-    @GET
-    @Path("/lookup")
-    List<Candidate> lookup(@QueryParam("titles") List<String> titles);
-
-    record Candidate(String id, String title, Integer year, List<String> genres, int ratingCount,
-            String posterUrl, String bannerUrl) {
+    record Similar(String id, String title, Integer year, List<String> genres, int ratingCount,
+            String posterUrl, String bannerUrl, double similarity) {
     }
 }

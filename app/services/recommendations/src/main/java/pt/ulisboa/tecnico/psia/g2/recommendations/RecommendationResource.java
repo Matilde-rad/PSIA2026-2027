@@ -19,10 +19,10 @@ import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 public class RecommendationResource {
 
     @Inject
-    SearchPipeline  pipeline;
+    RecommendationCache cache;
 
     @Inject
-    RecommendationCache cache;
+    SemanticSearch semantic;
 
     @GET
     @Path("/users/{userId}")
@@ -36,11 +36,11 @@ public class RecommendationResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public SearchResponse search(@PathParam("userId") String userId, SearchRequest request) {
-        return pipeline.search(request == null ? null : request.text());
+        return semantic.search(request == null ? null : request.text());
     }
 
     @ServerExceptionMapper
-    public RestResponse<Map<String, String>> aiUnavailable(SearchPipeline.AiUnavailableException e) {
+    public RestResponse<Map<String, String>> aiUnavailable(SemanticSearch.AiUnavailableException e) {
         return RestResponse.status(Response.Status.SERVICE_UNAVAILABLE,
                 Map.of("error", "ai_unavailable", "message", "AI service down"));
     }
