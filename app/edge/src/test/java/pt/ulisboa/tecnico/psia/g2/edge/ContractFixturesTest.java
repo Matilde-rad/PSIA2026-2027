@@ -13,6 +13,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.smallrye.mutiny.Uni;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
@@ -29,6 +30,14 @@ class ContractFixturesTest {
     @InjectMock
     @RestClient
     UsersClient users;
+
+    @InjectMock
+    @RestClient
+    ProfilesClient profiles;
+
+    @InjectMock
+    @RestClient
+    RecommendationsClient recommendations;
 
     private static Set<String> names(JsonNode node) {
         Set<String> names = new TreeSet<>();
@@ -67,5 +76,23 @@ class ContractFixturesTest {
         JsonNode actual = MAPPER.readTree(body);
         assertEquals(names(expected), names(actual));
         assertEquals(names(expected.get("user")), names(actual.get("user")));
+    }
+
+    @Test
+    void savedProfileMatchesTheProfileFixture() throws Exception {
+        Path file = CONTRACTS.resolve("profile.json");
+        Profile profile = STRICT.readValue(file.toFile(), Profile.class);
+        String token = Tokens.valid(profile.userId());
+        when(profiles.save(any(), any(), any())).thenReturn(Uni.createFrom().item(profile));
+        when(recommendations.refresh(any(), any(), any())).thenReturn(Uni.createFrom().item(List.of()));
+
+        String body = RestAssured.given()
+                .auth().oauth2(token)
+                .contentType(ContentType.JSON)
+                .body(file.toFile())
+                .put("/me/profile")
+                .then().statusCode(200).extract().asString();
+
+        assertEquals(names(MAPPER.readTree(file.toFile())), names(MAPPER.readTree(body)));
     }
 }

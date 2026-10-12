@@ -3,9 +3,12 @@ package pt.ulisboa.tecnico.psia.g2.edge;
 import java.util.List;
 
 import io.smallrye.mutiny.Uni;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -20,5 +23,18 @@ public interface ProfilesClient {
 
     @GET
     Uni<List<Profile>> list(@QueryParam("genre") String genre, @QueryParam("director") String director,
+            @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization);
+
+    // 404 when the user has not set up a profile yet
+    @GET
+    @Path("/{userId}")
+    Uni<Profile> get(@PathParam("userId") String userId,
+            @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization);
+
+    // creates the profile on the first save, replaces it afterwards
+    @PUT
+    @Path("/{userId}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    Uni<Profile> save(@PathParam("userId") String userId, Profile profile,
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization);
 }

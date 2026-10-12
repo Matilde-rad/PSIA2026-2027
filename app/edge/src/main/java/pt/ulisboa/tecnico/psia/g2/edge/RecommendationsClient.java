@@ -29,4 +29,11 @@ public interface RecommendationsClient {
     @Consumes(MediaType.APPLICATION_JSON)
     Uni<SearchView> search(@PathParam("userId") String userId, SearchRequest request,
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization);
+
+    // recomputes and caches the user's picks from their profile
+    @POST
+    @Path("/users/{userId}/refresh")
+    @Consumes(MediaType.APPLICATION_JSON)
+    Uni<List<Recommendation>> refresh(@PathParam("userId") String userId, Profile profile,
+            @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization);
 }
