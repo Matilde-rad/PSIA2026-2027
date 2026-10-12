@@ -1,67 +1,43 @@
 package pt.ulisboa.tecnico.psia.g2.movies;
 
 import jakarta.inject.Inject;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
+import java.util.Map;
 
-// hardcoded response.
 @Path("/movies")
 public class MovieResource {
 
     static final int DEFAULT_LIMIT = 15;
-    static final int MAX_LIMIT = 100;
-    static final int MAX_TITLES = 20;
+    static final int MAX_SIMILAR = 200;
+
+    public record SimilarRequest(float[] embedding, Integer limit, Integer minRatings) {
+    }
 
     @Inject
     CatalogRepository catalog;
 
-    @GET
-    @Path("/genres")
+    @POST
+    @Path("/similar")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public List<String> genres() {
-        return catalog.genres();
-    }
-
-    @GET
-    @Path("/candidates")
-    @Produces(MediaType.APPLICATION_JSON)
-    public List<Candidate> candidates(
-            @QueryParam("genres") List<String> genres,
-            @QueryParam("yearFrom") Integer yearFrom,
-            @QueryParam("yearTo") Integer yearTo,
-            @QueryParam("limit") Integer limit) {
-        List<String> wanted = genres == null
-                ? List.of()
-                : genres.stream().filter(g -> g != null && !g.isBlank()).toList();
-        int capped = Math.max(1, Math.min(MAX_LIMIT, limit == null ? DEFAULT_LIMIT : limit));
-        return catalog.candidates(wanted, yearFrom, yearTo, capped);
-    }
-
-    @GET
-    @Path("/lookup")
-    @Produces(MediaType.APPLICATION_JSON)
-    public List<Candidate> lookup(@QueryParam("titles") List<String> titles) {
-        if (titles == null) {
+    public List<SimilarMovie> similar(SimilarRequest request) {
+        if (request == null || request.embedding() == null || request.embedding().length == 0) {
             return List.of();
         }
-        List<String> keys = titles.stream()
-                .map(MovieLensCsv::titleKey)
-                .filter(k -> !k.isEmpty())
-                .distinct()
-                .limit(MAX_TITLES)
-                .toList();
-        return keys.isEmpty() ? List.of() : catalog.lookup(keys);
+        int capped = Math.max(1, Math.min(MAX_SIMILAR, request.limit() == null ? DEFAULT_LIMIT : request.limit()));
+        return catalog.similar(request.embedding(), capped, request.minRatings() == null ? 0 : request.minRatings());
     }
 
     @GET
-    @Path("/{id}")
+    @Path("/embeddings")
     @Produces(MediaType.APPLICATION_JSON)
-    public Movie get(@PathParam("id") String id) {
-        return new Movie(id, "title-" + id, 2026);
+    public Map<String, Integer> embeddings() {
+        return Map.of("embedded", catalog.embedded());
     }
 }

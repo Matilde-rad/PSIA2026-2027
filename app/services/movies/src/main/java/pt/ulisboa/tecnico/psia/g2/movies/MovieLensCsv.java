@@ -2,16 +2,12 @@ package pt.ulisboa.tecnico.psia.g2.movies;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class MovieLensCsv {
 
     private static final Pattern YEAR = Pattern.compile("\\s*\\((\\d{4})\\)\\s*$");
-    private static final Pattern ALT_TITLE = Pattern.compile("\\s*\\([^()]*\\)\\s*$");
-    private static final Pattern TRAILING_ARTICLE =
-            Pattern.compile("^(.+), (The|A|An|La|Le|Les|El|Il|Die|Der|Das)$");
     private static final String NO_GENRES = "(no genres listed)";
 
     private MovieLensCsv() {
@@ -75,21 +71,5 @@ public final class MovieLensCsv {
         }
         String title = fields.get(1).strip();
         return new MovieRow(id, title, parseYear(title), parseGenres(fields.get(2)));
-    }
-
-    public static String titleKey(String title) {
-        if (title == null) {
-            return "";
-        }
-        String s = YEAR.matcher(title.strip()).replaceFirst("").strip();
-        String withoutAlt = ALT_TITLE.matcher(s).replaceFirst("").strip();
-        if (!withoutAlt.isEmpty()) {
-            s = withoutAlt;
-        }
-        Matcher article = TRAILING_ARTICLE.matcher(s);
-        if (article.matches()) {
-            s = article.group(2) + " " + article.group(1);
-        }
-        return s.replaceAll("\\s+", " ").strip().toLowerCase(Locale.ROOT);
     }
 }

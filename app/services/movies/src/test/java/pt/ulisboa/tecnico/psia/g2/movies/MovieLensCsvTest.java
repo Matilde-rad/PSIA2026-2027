@@ -63,30 +63,4 @@ class MovieLensCsvTest {
         assertThrows(IllegalArgumentException.class, () -> MovieLensCsv.parseMovieLine("107,Only Two Fields"));
         assertThrows(IllegalArgumentException.class, () -> MovieLensCsv.parseMovieLine("abc,Some Title (2001),Drama"));
     }
-
-    @Test
-    void titleKeyStripsYearMovesTrailingArticleAndLowercases() {
-        assertEquals("the shawshank redemption", MovieLensCsv.titleKey("Shawshank Redemption, The (1994)"));
-        assertEquals("the shawshank redemption", MovieLensCsv.titleKey("The Shawshank Redemption"));
-        assertEquals("a star is born", MovieLensCsv.titleKey("Star Is Born, A (1954)"));
-        assertEquals("la dolce vita", MovieLensCsv.titleKey("Dolce Vita, La (1960)"));
-        assertEquals("the matrix", MovieLensCsv.titleKey("  The   MATRIX  "));
-    }
-
-    @Test
-    void titleKeyDropsTrailingAlternateTitleButNeverEmptiesTheKey() {
-        assertEquals("seven", MovieLensCsv.titleKey("Seven (a.k.a. Se7en) (1995)"));
-        assertEquals("the city of lost children",
-                MovieLensCsv.titleKey("City of Lost Children, The (Cité des enfants perdus, La) (1995)"));
-        assertEquals("assembly", MovieLensCsv.titleKey("Assembly (Ji jie hao) (2007) "));
-        assertEquals("(500) days of summer", MovieLensCsv.titleKey("(500) Days of Summer (2009)"));
-        assertEquals("(untitled)", MovieLensCsv.titleKey("(Untitled) (2009)"));
-    }
-
-    @Test
-    void titleKeyOfNullOrBlankIsEmptyAndTitlesWithoutYearAreKept() {
-        assertEquals("", MovieLensCsv.titleKey(null));
-        assertEquals("", MovieLensCsv.titleKey("   "));
-        assertEquals("babylon 5", MovieLensCsv.titleKey("Babylon 5"));
-    }
 }

@@ -157,7 +157,7 @@ public class MovieLensSeeder {
         boolean previousAutoCommit = connection.getAutoCommit();
         connection.setAutoCommit(false);
         try (PreparedStatement ps = connection.prepareStatement(
-                "INSERT INTO movie (id, title, year, genres, rating_count, title_key, imdb_id) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                "INSERT INTO movie (id, title, year, genres, rating_count, imdb_id) VALUES (?, ?, ?, ?, ?, ?)")) {
             int pending = 0;
             for (MovieLensCsv.MovieRow row : rows) {
                 ps.setInt(1, row.id());
@@ -169,8 +169,7 @@ public class MovieLensSeeder {
                 }
                 ps.setArray(4, connection.createArrayOf("text", row.genres().toArray()));
                 ps.setInt(5, ratingCounts.getOrDefault(row.id(), 0));
-                ps.setString(6, MovieLensCsv.titleKey(row.title()));
-                ps.setString(7, imdbIds.get(row.id()));
+                ps.setString(6, imdbIds.get(row.id()));
                 ps.addBatch();
                 if (++pending % BATCH_SIZE == 0) {
                     ps.executeBatch();
