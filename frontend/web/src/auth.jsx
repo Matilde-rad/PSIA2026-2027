@@ -5,6 +5,8 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(loadSession)
+  // true from a successful registration until the welcome page is done or skipped
+  const [isNew, setIsNew] = useState(false)
 
   async function login(username, password) {
     const data = await apiFetch('/auth/login', {
@@ -17,21 +19,28 @@ export function AuthProvider({ children }) {
     setSession(next)
   }
 
-  function register(username, password) {
-    return apiFetch('/auth/register', {
+  async function register(username, password) {
+    const user = await apiFetch('/auth/register', {
       method: 'POST',
       body: { username, password },
       auth: false,
     })
+    setIsNew(true)
+    return user
+  }
+
+  function finishOnboarding() {
+    setIsNew(false)
   }
 
   function logout() {
     clearSession()
     setSession(null)
+    setIsNew(false)
   }
 
   return (
-    <AuthContext.Provider value={{ user: session?.user ?? null, login, register, logout }}>
+    <AuthContext.Provider value={{ user: session?.user ?? null, isNew, login, register, logout, finishOnboarding }}>
       {children}
     </AuthContext.Provider>
   )

@@ -48,7 +48,7 @@ export default function RegisterPage() {
     }
     try {
       await login(username, password)
-      navigate('/', { replace: true })
+      navigate('/welcome', { replace: true })
     } catch {
       navigate('/login', { replace: true })
     }

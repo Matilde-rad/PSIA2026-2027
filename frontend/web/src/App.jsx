@@ -7,15 +7,17 @@ import RegisterPage from './pages/RegisterPage.jsx'
 import HomePage from './pages/HomePage.jsx'
 import SocialPage from './pages/SocialPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
+import WelcomePage from './pages/WelcomePage.jsx'
 
 function RequireAuth() {
   const { user } = useAuth()
   return user ? <Outlet /> : <Navigate to="/login" replace />
 }
 
+// A user who has just registered goes to the welcome page first, everyone else to Home.
 function PublicOnly() {
-  const { user } = useAuth()
-  return user ? <Navigate to="/" replace /> : <Outlet />
+  const { user, isNew } = useAuth()
+  return user ? <Navigate to={isNew ? '/welcome' : '/'} replace /> : <Outlet />
 }
 
 function Layout() {
@@ -63,6 +65,7 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
       </Route>
       <Route element={<RequireAuth />}>
+        <Route path="/welcome" element={<WelcomePage />} />
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/social" element={<SocialPage />} />

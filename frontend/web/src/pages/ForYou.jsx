@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { apiFetch } from '../api.js'
+import { useAuth } from '../auth.jsx'
 import MovieCard, { hueFor } from '../components/MovieCard.jsx'
+import { prettyTitle } from '../titles.js'
 
 export default function ForYou() {
+  const { user } = useAuth()
   const [recommendations, setRecommendations] = useState(null)
   const [error, setError] = useState(null)
   const [attempt, setAttempt] = useState(0)
@@ -37,7 +41,13 @@ export default function ForYou() {
   if (recommendations.length === 0) {
     return (
       <div className="state-message">
-        <p className="state-text">No recommendations yet.</p>
+        <p className="state-title">No recommendations yet</p>
+        <p className="state-text">
+          They are made from your profile: add your favorite genres, directors and movies.
+        </p>
+        <Link className="btn btn-primary" to={`/profile/${user.id}`}>
+          Go to your profile
+        </Link>
       </div>
     )
   }
@@ -76,7 +86,7 @@ function Carousel({ items }) {
               key={rec.movieId}
               type="button"
               className={i === index ? 'carousel-line carousel-line-active' : 'carousel-line'}
-              aria-label={`Show ${rec.title}`}
+              aria-label={`Show ${prettyTitle(rec.title)}`}
               aria-current={i === index}
               onClick={() => setIndex(i)}
             />
@@ -92,7 +102,7 @@ function Banner({ title, bannerUrl }) {
   return (
     <article className="banner" style={{ '--poster-hue': hueFor(title) }}>
       {bannerUrl && !failed && <img src={bannerUrl} alt="" loading="lazy" onError={() => setFailed(true)} />}
-      <span className="banner-title">{title}</span>
+      <span className="banner-title">{prettyTitle(title)}</span>
     </article>
   )
 }

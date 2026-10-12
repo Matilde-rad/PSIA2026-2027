@@ -4,8 +4,8 @@ PSIA 2026/27 project, group 2.
 
 > **Status:** registration, login and the web UI run locally, and so does the AI
 > and recommendations slice (`ai`, `movies`, `recommendations`; see *AI and
-> recommendations slice: run locally*). Profiles and social discovery exist in
-> the backend only; the deployment is not built yet. See *Current state* below.
+> recommendations slice: run locally*). Profiles, follows and social discovery work
+> end to end; the deployment is not built yet. See *Current state* below.
 
 Users register, create a profile describing their interests, and ask the
 platform's AI for movie recommendations matching that profile. Users can browse
@@ -136,18 +136,49 @@ or delete theirs (403 otherwise):
 
 ```sh
 curl -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"displayName":"Alice","bio":"likes films","favoriteGenres":["Horror"],"favoriteDirectors":["Ridley Scott"],"favoriteMovies":["Alien"]}' \
+  -d '{"displayName":"Alice","bio":"likes films","favoriteGenres":["Horror"],"favoriteDirectors":["Ridley Scott"],"favoriteMovies":["1214"]}' \
   http://127.0.0.1:8081/profiles                                             # the caller's own profile
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/profiles/$ID   # ID = user.id from login
 curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8081/profiles?genre=horror&director=scott'
 ```
 
-`PUT /profiles/{id}` replaces a profile and `DELETE /profiles/{id}` removes it.
-The `genre` and `director` filters are case-insensitive substring matches, done
-in Postgres.
+`PUT /profiles/{id}` creates the profile on the first save and replaces it
+afterwards; `DELETE /profiles/{id}` removes it. The `genre` and `director`
+filters are case-insensitive substring matches, done in Postgres.
+`favoriteMovies` holds ids of the `movies` catalog (1214 is Alien), not titles;
+a profile takes at most 10 movies, 10 directors and 30 genres.
+
+Follows and people are under `/social`, also in `users`, always from the
+caller's point of view:
+
+```sh
+curl -X PUT    -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/social/following/$OTHER   # follow, 204
+curl -X DELETE -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/social/following/$OTHER   # unfollow, 204
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/social/$OTHER/stats       # followers, following, followedByMe
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/social/$OTHER/followers   # also /following
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/social/suggestions
+curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8081/social/search?q=ali'
+```
+
+- Suggestions are the people the caller does not follow yet whose profile
+  overlaps with theirs, closest first: one point per shared genre or director,
+  two per shared favorite movie. No profile, no suggestions.
+- Each person comes with `followedByMe` and the genres, directors and movie ids
+  they share with the caller.
+- Search matches the username or the display name, at least 2 characters.
+
+`GET /internal/profiles` returns every profile to other services. It takes no
+user token; the caller sends the shared key in `X-Internal-Key` instead
+(`users.internal.key`, fixed to `dev-internal-key` in dev). In prod set
+`USERS_INTERNAL_KEY` in `users` and the same value as `RECS_USERS_INTERNAL_KEY`
+in `recommendations`, both from a Secret; there is no default.
 
 ```sh
 curl http://127.0.0.1:8082/movies/embeddings
+curl http://127.0.0.1:8082/movies/genres          # every genre in the catalog
+curl 'http://127.0.0.1:8082/movies/search?q=par'  # title autocomplete, most rated first
+curl -X POST -H 'Content-Type: application/json' -d '{"ids":["1214","2571"]}' \
+  http://127.0.0.1:8082/movies/lookup             # movies by id, with poster URLs
 curl http://127.0.0.1:8083/recommendations/users/42
 ```
 
@@ -165,12 +196,26 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID
 curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"text":"a horror movie from the 80s"}' http://127.0.0.1:8080/screens/search
 curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8080/screens/discover?genre=horror'
+curl -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"displayName":"Alice","favoriteGenres":["Horror"],"favoriteMovies":["1214"]}' \
+  http://127.0.0.1:8080/me/profile
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/social
+curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8080/screens/social/search?q=ali'
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID/followers   # also /following
+curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8080/screens/movies/search?q=par'
+curl -X PUT -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/me/following/$OTHER      # DELETE unfollows
 ```
 
 - Register and login are the only public routes; everything else needs the token.
   `edge` verifies it and forwards it to `users`.
 - Your own screen has `recommendations`; any other user's screen has
-  `"recommendations": []`.
+  `"recommendations": []`. Every screen has `profile`, which is `null` until
+  that user saves one, `favoriteMovies` (the profile's movie ids as movies with
+  titles and posters, from `movies`), `followers`, `following` and `followedByMe`.
+- `PUT /me/profile` saves the caller's profile in `users`, then asks
+  `recommendations` to recompute their picks from it, so Home is ready right away.
+  If that recompute fails or takes longer than 15 s the profile is still saved and
+  the background agent catches up on its next run.
 - Every error has the `users` JSON shape. A 400, 404, 409 or 401 from `users` comes back
   unchanged.
 - A failing or unreachable `users` or `recommendations` gives 502 `bad_gateway`. A
@@ -178,10 +223,19 @@ curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8080/screens/discover?g
 - `/screens/search` asks the AI for 12 movies through `recommendations`, so it also
   needs `ai`, `movies` and Ollama (see *AI and recommendations slice: run locally*).
   When the AI cannot answer it gives 503 `ai_unavailable`.
-- On your own screen `edge` calls `users` and `recommendations` concurrently via
-  `Uni.combine()`.
+- A profile screen calls `users` three times (account, profile, follow counts)
+  and, on your own screen, `recommendations`, all concurrently via
+  `Uni.combine()`, then `movies` once for the favorite movies. It needs `movies`
+  whenever the profile has favorite movies: without it the screen is a 502 rather
+  than a profile that seems to have none.
+- `/screens/social` returns people with the caller's taste, `/screens/social/search`
+  people by name. Shared movies come back as titles: one `movies` lookup for the
+  whole list.
+- `/screens/movies/search` is the title autocomplete of the profile form.
 - `/screens/discover` forwards its `genre` and `director` filters to `GET /profiles`
   in `users`.
+- `/screens/genres` returns the catalog's genres from `movies` (`GET /movies/genres`);
+  the profile form offers exactly these, so `movies` must be running to pick genres.
 
 Web UI: with `users`, `recommendations` and `edge` running (plus `ai`, `movies`
 and Ollama for the Search tab), run
@@ -238,10 +292,13 @@ cd app/services/recommendations && mvn quarkus:dev   # :8083, start last
 
 > Start `recommendations` last, once `ai` and `movies` have each logged
 > `started in`. Its background agent runs once at startup and then every 10
-> minutes (`recs.agent.every`). It still lists users through `GET /users`, which
-> `users` no longer serves, so every run logs
-> `agent run skipped users unavailable` and caches nothing until the agent reads
-> user profiles.
+> minutes (`recs.agent.every`). Each run reads every profile from `users`
+> (`GET /internal/profiles`), turns each one into a search request ("Horror,
+> Sci-Fi movies. Directed by Ridley Scott. Similar to Alien. ..."), searches once
+> per distinct taste and caches 12 picks per user in `recs_db`. Favorite movies
+> are ids in the profile; the agent gets their titles from `movies` in one lookup
+> and leaves those movies out of the user's picks. Without `users` or `movies` a
+> run logs `agent run skipped ... unavailable` and keeps the cache.
 
 > On its first start, `movies` downloads MovieLens `ml-32m` (239 MB, 87,585
 > movies, ratings up to October 2023) into the JVM temp dir, never into the
@@ -264,7 +321,7 @@ cd app/services/recommendations && mvn quarkus:dev   # :8083, start last
 curl -s -X POST -H 'Content-Type: application/json' \
   -d '{"text":"a horror movie from the 80s"}' \
   http://127.0.0.1:8083/recommendations/users/1/search   # calls ai, movies and Ollama; under 1 s on an M4
-curl -s http://127.0.0.1:8083/recommendations/users/1    # reads recs_db only; [] until the agent reads profiles
+curl -s http://127.0.0.1:8083/recommendations/users/1    # reads recs_db only; [] until that user has a profile
 ```
 
 The search answers 12 picks (shortened here to the first):
@@ -279,6 +336,8 @@ the 60 nearest movies with at least 50 ratings (pgvector, cosine distance), and
 No LLM is involved.
 
 The cached list, once the agent fills it, is a plain list of the same picks.
+`POST /recommendations/users/{id}/refresh` with a profile as the body fills it
+for one user at once; `edge` calls it after a profile save.
 
 - Poster and banner images come from Stremio MetaHub
   (`images.metahub.space`), addressed by the IMDb id in MovieLens `links.csv`. No
@@ -318,13 +377,21 @@ Done:
 - Contract fixtures in `app/contracts` catch field drift between `users` and `edge`.
 - `users`: registration and login (RS256 JWT), `GET /users/me`, every other
   endpoint denied without a valid token (deny-by-default).
-- Web UI in `frontend/web` (React + Vite): register, login, logout and the profile
-  header with real data through `edge`. Home's Search tab asks the AI (Ask AI) and
-  shows 12 movies with posters. The genre bar, Edit profile and Social search are
-  static previews until their services exist.
+- Web UI in `frontend/web` (React + Vite): register, login, logout, a welcome
+  page after registering that asks for the profile, and the profile page with
+  real data and editing, all through `edge`. Home's For you tab shows the cached
+  picks; its Search tab asks the AI (Ask AI) and shows 12 movies with posters.
+  Favorite movies are picked with title autocomplete and shown as posters. The
+  Social tab suggests people with your taste and searches by name; you can follow
+  people and open anyone's followers and following.
 - Profile CRUD (`/profiles`) in `users`, persisted in `users_db`, owner-only writes.
 - Social discovery: `GET /profiles?genre=&director=` filters profiles by favourite
-  genre or director, exposed to the UI as `edge`'s `/screens/discover`.
+  genre or director, exposed as `edge`'s `/screens/discover` (the UI does not use
+  it yet).
+- Follows, follower lists, people suggestions by shared taste and people search
+  (`/social` in `users`, `follows` table in `users_db`).
+- `movies` serves title autocomplete (`GET /movies/search`), lookup by id
+  (`POST /movies/lookup`) and the genre list (`GET /movies/genres`).
 - `ai` wraps Ollama: `POST /embed/query` embeds a request with
   `qwen3-embedding:0.6b`.
 - `movies` seeds MovieLens `ml-32m` into `movies_db`, loads the precomputed
@@ -333,13 +400,13 @@ Done:
 - `recommendations` runs the live search
   (`POST /recommendations/users/{id}/search`) and serves the cached picks
   (`GET /recommendations/users/{id}`) from `recs_db`.
+- The background agent fills that cache from the users' profiles every 10
+  minutes, and a profile save refreshes its owner's picks at once.
 
 Not started:
 
-- Profiles and social discovery in the web UI (Edit profile and Social search are
-  still static previews), and profile data on `edge`'s profile screen.
-- The background agent's user source. It still calls `GET /users`, which
-  `users` no longer has, so it caches nothing until it reads user profiles.
+- Authentication on `recommendations`, `movies` and `ai`: they trust any caller,
+  so they must not be reachable from outside the cluster.
 - Resilience on the `edge` clients. No retry, timeout or circuit breaker —
   an upstream failure propagates straight to the caller.
 - `compose.yaml` for the local container deployment.

@@ -151,7 +151,7 @@ img {
 }
 
 .page-header {
-  margin-bottom: 8px;
+  margin-bottom: 24px;
 }
 
 .page-title {
@@ -443,50 +443,9 @@ img {
   }
 }
 
-/* ---------- Previews and Home ---------- */
-.preview-section {
-  margin-bottom: 40px;
-}
-
-.preview-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
 .section-title {
   font-size: 20px;
   font-weight: 700;
-}
-
-.preview-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface-muted);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.preview-badge::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-/* Belt and braces next to the inert attribute. */
-.preview {
-  pointer-events: none;
-  user-select: none;
 }
 
 .ask-bar {
@@ -498,11 +457,6 @@ img {
   border-radius: var(--radius-lg);
   padding: 8px 8px 8px 16px;
   margin-bottom: 24px;
-}
-
-.fake-input {
-  flex: 1;
-  color: var(--text-muted);
 }
 
 .ask-bar:focus-within {
@@ -665,7 +619,7 @@ img {
   transition: transform 150ms ease;
 }
 
-/* Accent-tinted lift on hover (previews ignore it, real cards will get it). */
+/* Accent-tinted lift on hover. */
 .movie-card:hover {
   transform: translateY(-4px);
 }
@@ -717,11 +671,6 @@ img {
 .movie-year {
   font-size: 13px;
   color: var(--text-muted);
-}
-
-/* ---------- Social and avatars ---------- */
-.page-header + .preview-section {
-  margin-top: 32px;
 }
 
 /* Initials circle with a gradient ring. */
@@ -799,38 +748,286 @@ img {
 }
 
 /* Profile */
-.profile-preview {
-  display: grid;
-  gap: 12px;
+.profile-section {
+  margin-bottom: 40px;
 }
 
-.profile-preview .chips {
-  margin: 0;
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.profile-about {
+  display: grid;
+  gap: 16px;
 }
 
 .profile-bio {
   font-size: 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-.fake-label {
+.detail-label {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-bottom: 8px;
 }
 
-.fake-textarea {
+.chips-tight {
+  margin: 0;
+}
+
+/* Profile form (welcome page and Edit profile) */
+.auth-card-wide {
+  width: min(640px, 100%);
+}
+
+.field-textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
+.chip-toggle {
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 150ms;
+}
+
+.chip-toggle:hover {
+  border-color: var(--text-muted);
+}
+
+.chip-toggle.chip-selected:hover {
+  border-color: transparent;
+}
+
+.tag-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 12px 14px;
-  min-height: 88px;
-  color: var(--text-muted);
+  padding: 8px 10px;
+  transition: border-color 150ms, box-shadow 150ms;
 }
 
-.preview-actions {
+.tag-input:focus-within {
+  border-color: var(--accent-from);
+  box-shadow: 0 0 0 3px rgba(255, 122, 92, 0.25);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 6px;
+  overflow-wrap: anywhere;
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font: inherit;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.tag-remove:hover {
+  color: var(--text);
+}
+
+.tag-text {
+  flex: 1;
+  min-width: 160px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  padding: 4px;
+}
+
+.tag-text:focus {
+  outline: none;
+}
+
+.form-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+a.btn {
+  text-decoration: none;
+}
+
+/* Movie autocomplete (favorite movies in the profile form) */
+.autocomplete {
+  position: relative;
+}
+
+.autocomplete-list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.autocomplete-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.autocomplete-option-active {
+  background: var(--surface-muted);
+}
+
+.autocomplete-thumb {
+  flex: none;
+  width: 28px;
+  height: 42px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--surface-muted);
+}
+
+.autocomplete-empty {
+  padding: 10px 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* Social: people cards, follow button, followers dialog */
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.search-box:focus-within {
+  border-color: var(--accent-from);
+}
+
+.user-card {
+  align-items: flex-start;
+}
+
+.user-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-card-body .user-name {
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.user-card-body .user-name:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.user-meta {
+  overflow-wrap: anywhere;
+}
+
+.profile-header-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-name {
+  overflow-wrap: anywhere;
+}
+
+.profile-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin-top: 10px;
+}
+
+.count-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.count-button strong {
+  color: var(--text);
+}
+
+.count-button:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dialog {
+  width: min(520px, calc(100% - 32px));
+  max-height: min(640px, calc(100% - 32px));
+  padding: 0;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.dialog-body {
+  padding: 24px;
+}
+
+.people-list {
+  display: grid;
+  gap: 12px;
+}
+
+.people-list .user-card {
+  background: var(--bg);
+}
+
+@media (max-width: 640px) {
+  .profile-header-main {
+    flex-basis: 100%;
+  }
+
+  .profile-counts {
+    justify-content: center;
+  }
 }
