@@ -31,8 +31,7 @@ class SearchScreenResourceTest {
         String bearer = "Bearer " + token;
         SearchRequest request = new SearchRequest("80s horror");
         when(recommendations.search(id, request, bearer)).thenReturn(Uni.createFrom().item(new SearchView(
-                List.of(new Recommendation("1258", "Shining, The (1980)", "poster", "banner")),
-                new SearchView.AppliedFilters(List.of("Horror"), 1980, 1989))));
+                List.of(new Recommendation("1258", "Shining, The (1980)", "poster", "banner")))));
 
         RestAssured.given()
                 .auth().oauth2(token)
@@ -42,9 +41,7 @@ class SearchScreenResourceTest {
                 .then()
                 .statusCode(200)
                 .body("results[0].movieId", equalTo("1258"))
-                .body("results[0].posterUrl", equalTo("poster"))
-                .body("appliedFilters.genres[0]", equalTo("Horror"))
-                .body("appliedFilters.yearFrom", equalTo(1980));
+                .body("results[0].posterUrl", equalTo("poster"));
 
         verify(recommendations).search(id, request, bearer);
     }

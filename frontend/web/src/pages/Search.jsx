@@ -40,7 +40,7 @@ export default function Search() {
           {asking ? 'Asking…' : 'Ask AI'}
         </button>
       </form>
-      {asking && <p className="state-text">The AI is picking movies, this can take a little while…</p>}
+      {asking && <p className="state-text">Finding movies…</p>}
       {error && <SearchError error={error} />}
       {result && <Results result={result} />}
     </>
@@ -66,32 +66,12 @@ function Results({ result }) {
       </div>
     )
   }
-  const filters = filterLabels(result.appliedFilters)
   return (
-    <>
-      {filters.length > 0 && (
-        <div className="chips">
-          {filters.map((label) => (
-            <span key={label} className="chip">
-              {label}
-            </span>
-          ))}
-        </div>
-      )}
-      <div className="movie-grid">
-        {result.results.map((rec) => (
-          <MovieCard key={rec.movieId} title={rec.title} posterUrl={rec.posterUrl} />
-        ))}
-      </div>
-    </>
+    <div className="movie-grid">
+      {result.results.map((rec) => (
+        <MovieCard key={rec.movieId} title={rec.title} posterUrl={rec.posterUrl} />
+      ))}
+    </div>
   )
 }
 
-// What the AI understood: its genres plus the year range, if any.
-function filterLabels({ genres = [], yearFrom, yearTo } = {}) {
-  const labels = [...genres]
-  if (yearFrom && yearTo) labels.push(yearFrom === yearTo ? `${yearFrom}` : `${yearFrom}–${yearTo}`)
-  else if (yearFrom) labels.push(`From ${yearFrom}`)
-  else if (yearTo) labels.push(`Up to ${yearTo}`)
-  return labels
-}
