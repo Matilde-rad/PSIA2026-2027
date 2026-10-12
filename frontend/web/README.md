@@ -49,7 +49,7 @@ The screens edge serves are `/screens/home` (Home, For you tab), `/screens/searc
 | Redirects for logged-out and logged-in users | |
 | Profile header (username, member since) for any user id at `/profile/ID` | |
 | Home: For you, your recommendations as a banner carousel and grid (`/screens/home`) | |
-| Home: Search, Ask AI returns 10 movies with posters and the filters it understood (`/screens/search`); a search takes several seconds | |
+| Home: Search, Ask AI returns 12 movies with posters (`/screens/search`) | |
 
 ## Session
 

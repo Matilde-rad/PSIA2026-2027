@@ -19,7 +19,7 @@ app/                Maven reactor (Java 21, Quarkus 3.39.4)
   services/users/     accounts, login, profiles          → users_db
   services/movies/    movie catalog                      → movies_db
   services/recommendations/  AI recommendations + cache  → recs_db
-  services/ai/        wraps the Ollama model (no database)
+  services/ai/        wraps the Ollama embedding model (no database)
   edge/               aggregates services for the UI (no database)
 frontend/web/       web UI (React + Vite), talks only to edge
 infra/terraform/    VMs for the cluster                       (empty)
@@ -131,7 +131,7 @@ Call register and login **without** an `Authorization` header: a stale or invali
 token sent to them gets a 401.
 
 ```sh
-curl http://127.0.0.1:8082/movies/genres
+curl http://127.0.0.1:8082/movies/embeddings
 curl http://127.0.0.1:8083/recommendations/users/42
 ```
 
@@ -158,7 +158,7 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   unchanged.
 - A failing or unreachable `users` or `recommendations` gives 502 `bad_gateway`. A
   malformed id gives 404.
-- `/screens/search` asks the AI for 10 movies through `recommendations`, so it also
+- `/screens/search` asks the AI for 12 movies through `recommendations`, so it also
   needs `ai`, `movies` and Ollama (see *AI and recommendations slice: run locally*).
   When the AI cannot answer it gives 503 `ai_unavailable`.
 - On your own screen `edge` calls `users` and `recommendations` concurrently via
@@ -187,24 +187,23 @@ Ollama. `users` and `edge` are not needed for the checks below. Tested on macOS
 - A running Docker runtime (Docker Desktop; tested with 28.1.1), checked with
   `docker info`. `movies` and `recommendations` get their Postgres from Quarkus
   Dev Services.
-- Ollama, tested with 0.35.1 and 0.40.0. `brew install ollama`
-  currently installs 0.40.2, which was not tested, so run the checks in step 1.
-- Network on first start: Maven dependencies, the `postgres:18` image, the
-  239 MB MovieLens zip and the 2.5 GB model.
+- Ollama, tested with 0.40.0. `brew install ollama`
+- Git LFS (`brew install git-lfs`, then `git lfs install` once), tested with
+  3.8.0. The precomputed movie vectors are a 1.2 GB LFS file; without LFS the
+  clone holds only a pointer and the search finds nothing.
+- Network on first start: Maven dependencies, the `pgvector/pgvector:pg18` image,
+  the 239 MB MovieLens zip and the 639 MB embedding model.
 
-### 1. Ollama and the model
+### 1. Ollama, the model and the vectors
 
 ```sh
 brew install ollama                                # macOS; or the app from https://ollama.com/download
 ollama serve                                       # own terminal; skip if the Ollama app already runs
-ollama pull qwen3:4b-instruct-2507-q4_K_M          # 2.5 GB, once
-curl -s http://127.0.0.1:11434/api/version         # Ollama answers with its version
-curl -s http://127.0.0.1:11434/api/tags            # must list qwen3:4b-instruct-2507-q4_K_M
+ollama pull qwen3-embedding:0.6b                   # 639 MB, once
+curl -s http://127.0.0.1:11434/api/tags            # must list qwen3-embedding:0.6b
+git lfs pull                                       # data/embeddings/*.csv, if the clone has only the pointer
 ```
 
-> Pull the full tag. The bare `qwen3:4b` tag is the thinking build and much
-> slower; `ai` uses the tag in `ai.model`.
->
 > Run Ollama natively. In Docker on macOS it gets no GPU and runs several times
 > slower.
 
@@ -227,9 +226,14 @@ cd app/services/recommendations && mvn quarkus:dev   # :8083, start last
 
 > On its first start, `movies` downloads MovieLens `ml-32m` (239 MB, 87,585
 > movies, ratings up to October 2023) into the JVM temp dir, never into the
-> repo, so it is never committed (GroupLens license). Later starts reuse the
-> cached zip. It seeds `movies_db` and opens its port only after the seed,
-> which counts 32M ratings and takes several seconds.
+> repo. Later starts reuse the cached zip. It seeds `movies_db` and opens its
+> port only after the seed, which counts 32M ratings and takes several seconds.
+>
+> Then, in the background, it loads one vector per movie from
+> `data/embeddings/movielens_qwen3_embedding_0.6b.csv` and builds the HNSW
+> index, about 1.5 min on an M4. `curl -s http://127.0.0.1:8082/movies/embeddings`
+> shows the count (87,585 when done). Searches made before that find fewer or no
+> movies.
 
 > Dev Services removes the Postgres containers when a service stops. Each
 > restart therefore re-seeds `movies_db` and empties `recs_db` until the agent's
@@ -240,16 +244,20 @@ cd app/services/recommendations && mvn quarkus:dev   # :8083, start last
 ```sh
 curl -s -X POST -H 'Content-Type: application/json' \
   -d '{"text":"a horror movie from the 80s"}' \
-  http://127.0.0.1:8083/recommendations/users/1/search   # calls ai, movies and Ollama; a few seconds on an Apple-silicon Mac
+  http://127.0.0.1:8083/recommendations/users/1/search   # calls ai, movies and Ollama; under 1 s on an M4
 curl -s http://127.0.0.1:8083/recommendations/users/1    # reads recs_db only; [] until the agent reads profiles
 ```
 
-The search answers 10 picks plus the filters the AI extracted (shortened here to
-the first pick):
+The search answers 12 picks (shortened here to the first):
 
 ```json
-{"results":[{"movieId":"1347","title":"Nightmare on Elm Street, A (1984)","posterUrl":"https://images.metahub.space/poster/medium/tt0087800/img","bannerUrl":"https://images.metahub.space/background/medium/tt0087800/img"}],"appliedFilters":{"genres":["Horror"],"yearFrom":1980,"yearTo":1989}}
+{"results":[{"movieId":"1994","title":"Poltergeist (1982)","posterUrl":"https://images.metahub.space/poster/medium/tt0084516/img","bannerUrl":"https://images.metahub.space/background/medium/tt0084516/img"}]}
 ```
+
+How it picks: `ai` embeds the request with `qwen3-embedding:0.6b`, `movies` returns
+the 60 nearest movies with at least 50 ratings (pgvector, cosine distance), and
+`recommendations` keeps the 12 best by similarity plus a small popularity bonus.
+No LLM is involved.
 
 The cached list, once the agent fills it, is a plain list of the same picks.
 
@@ -262,24 +270,21 @@ The cached list, once the agent fills it, is a plain list of the same picks.
 - An HTTP 503 `{"error":"ai_unavailable","message":"AI service down"}` means
   `ai` could not use Ollama (not running, or the model is missing) or `movies`
   failed. Rerun the step 1 checks.
+- After changing the embedding model or the movie text, the vectors in
+  `data/embeddings` must be recomputed with the same model: a query and the
+  movie vectors from different models do not match.
 
 ### Known limitations
 
-- The catalog holds only titles, years and genres. MovieLens `ml-32m` has no
-  cast, director or plot data, and its ratings end in October 2023.
-- For themes outside the 19 genres ("cooking movies", "films about chess"),
-  `ai` suggests film titles from the model's own knowledge and `movies` keeps
-  the ones in the catalog. Invented titles are dropped, but the 4B model often
-  misses obvious films (for "cooking movies" it skips Ratatouille and Julie &
-  Julia, both in the catalog), so some picks fall back to the most-rated films.
-  With 10 picks this shows: "cooking movies" returns Chef and Food, Inc., then
-  Toy Story, Star Wars and other most-rated films.
-- Requests about actors or directors are unreliable. For "movies with Brad
-  Pitt" the model suggested The Revenant and Sicario next to real Brad Pitt
-  films, and nothing in the catalog can reject a real film with the wrong cast.
-  A fix would load cast and directors per film at seed time (for example from
-  Wikidata, through the IMDb ids in MovieLens `links.csv`) and filter on them
-  like genres.
+- Each movie's vector comes from its title, year, genres and up to 15 MovieLens
+  user tags. MovieLens `ml-32m` has no cast, director or plot data, so requests
+  about actors work only where tags name them, and its ratings end in October
+  2023.
+- There are no hard filters: "80s horror" ranks 80s horror films high, but a
+  close match from another decade can still appear.
+- Most of the 87k movies have no tags; their vectors rest on the title alone,
+  which is why the search skips movies with fewer than 50 ratings
+  (`recs.semantic.min-ratings`).
 
 Running Ollama in a cluster: see [deploy/ollama.md](deploy/ollama.md).
 
@@ -296,14 +301,13 @@ Done:
   endpoint denied without a valid token (deny-by-default).
 - Web UI in `frontend/web` (React + Vite): register, login, logout and the profile
   header with real data through `edge`. Home's Search tab asks the AI (Ask AI) and
-  shows 10 movies with posters. The genre bar, Edit profile and Social search are
+  shows 12 movies with posters. The genre bar, Edit profile and Social search are
   static previews until their services exist.
-- `ai` wraps Ollama: `POST /extract-filters` and `POST /rank` with the pinned
-  `qwen3:4b-instruct-2507-q4_K_M`.
-- `movies` seeds MovieLens `ml-32m` into `movies_db` and serves
-  `GET /movies/genres`, `GET /movies/candidates` and `GET /movies/lookup`
-  (catalog rows for the film titles `ai` suggests). Every row carries poster and
-  banner image URLs.
+- `ai` wraps Ollama: `POST /embed/query` embeds a request with
+  `qwen3-embedding:0.6b`.
+- `movies` seeds MovieLens `ml-32m` into `movies_db`, loads the precomputed
+  movie vectors into pgvector and serves `POST /movies/similar` (the nearest
+  movies to a vector). Every row carries poster and banner image URLs.
 - `recommendations` runs the live search
   (`POST /recommendations/users/{id}/search`) and serves the cached picks
   (`GET /recommendations/users/{id}`) from `recs_db`.
