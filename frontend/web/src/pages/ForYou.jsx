@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { apiFetch } from '../api.js'
 import { useAuth } from '../auth.jsx'
 import MovieCard, { hueFor } from '../components/MovieCard.jsx'
+import { runtime } from '../time.js'
 import { prettyTitle } from '../titles.js'
 
 export default function ForYou() {
@@ -75,10 +76,33 @@ function Carousel({ items }) {
     return () => clearTimeout(timer)
   }, [index, items.length])
 
+  // running time, rating and synopsis of each movie, loaded once and keyed by movie id;
+  // a banner without them still shows its title
+  const [details, setDetails] = useState({})
+  useEffect(() => {
+    let ignore = false
+    for (const rec of items) {
+      apiFetch(`/screens/movie/${rec.movieId}`)
+        .then((data) => {
+          if (!ignore) setDetails((known) => ({ ...known, [rec.movieId]: data }))
+        })
+        .catch(() => {})
+    }
+    return () => {
+      ignore = true
+    }
+  }, [items])
+
   const current = items[index]
   return (
     <section className="carousel" style={{ '--slide-ms': `${SLIDE_MS}ms` }}>
-      <Banner key={current.movieId} movieId={current.movieId} title={current.title} bannerUrl={current.bannerUrl} />
+      <Banner
+        key={current.movieId}
+        movieId={current.movieId}
+        title={current.title}
+        bannerUrl={current.bannerUrl}
+        details={details[current.movieId]}
+      />
       {items.length > 1 && (
         <div className="carousel-lines">
           {items.map((rec, i) => (
@@ -97,12 +121,20 @@ function Carousel({ items }) {
   )
 }
 
-function Banner({ movieId, title, bannerUrl }) {
+function Banner({ movieId, title, bannerUrl, details }) {
   const [failed, setFailed] = useState(false)
+  const facts = [
+    details?.runtimeMinutes && runtime(details.runtimeMinutes),
+    details?.imdbRating && `★ ${details.imdbRating.toFixed(1)} IMDb`,
+  ].filter(Boolean)
   return (
     <Link className="banner" to={`/movie/${movieId}`} style={{ '--poster-hue': hueFor(title) }}>
       {bannerUrl && !failed && <img src={bannerUrl} alt="" loading="lazy" onError={() => setFailed(true)} />}
-      <span className="banner-title">{prettyTitle(title)}</span>
+      <span className="banner-text">
+        <span className="banner-title">{prettyTitle(title)}</span>
+        {facts.length > 0 && <span className="banner-facts">{facts.join(' · ')}</span>}
+        {details?.description && <span className="banner-synopsis">{details.description}</span>}
+      </span>
     </Link>
   )
 }

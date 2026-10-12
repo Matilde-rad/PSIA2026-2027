@@ -10,3 +10,10 @@ export function timeAgo(iso) {
   if (days < 7) return days === 1 ? 'yesterday' : `${days} days ago`
   return then.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
+
+export function runtime(minutes) {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m}min`
+  return m === 0 ? `${h}h` : `${h}h ${m}min`
+}

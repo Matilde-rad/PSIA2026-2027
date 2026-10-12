@@ -167,6 +167,24 @@ curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8081/social/search?q=al
   they share with the caller.
 - Search matches the username or the display name, at least 2 characters.
 
+Each user's movies are under `/watchlist`, also in `users` (`user_movies` table). A
+movie is `to_watch`, or watched with a verdict: `liked` or `disliked`:
+
+```sh
+curl -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"status":"to_watch"}' http://127.0.0.1:8081/watchlist/1214      # then "liked" or "disliked"
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/watchlist            # mine, newest first
+curl -X DELETE -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/watchlist/1214
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/activity/feed        # people I follow
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/activity/users/$OTHER
+```
+
+- There is one row per user and movie, so an activity is the latest state of that
+  pair: a movie that goes from `to_watch` to `liked` shows once, as liked.
+- `GET /internal/watched` (same shared key as `/internal/profiles`, below) returns
+  every watched movie with `userId`, `movieId`, `liked` and `watchedAt`. Nothing
+  reads it yet: it is there for the recommendations agent to learn from.
+
 `GET /internal/profiles` returns every profile to other services. It takes no
 user token; the caller sends the shared key in `X-Internal-Key` instead
 (`users.internal.key`, fixed to `dev-internal-key` in dev). In prod set
@@ -179,8 +197,15 @@ curl http://127.0.0.1:8082/movies/genres          # every genre in the catalog
 curl 'http://127.0.0.1:8082/movies/search?q=par'  # title autocomplete, most rated first
 curl -X POST -H 'Content-Type: application/json' -d '{"ids":["1214","2571"]}' \
   http://127.0.0.1:8082/movies/lookup             # movies by id, with poster URLs
+curl http://127.0.0.1:8082/movies/1214            # one movie: synopsis, runtime, cast, directors, IMDb rating
 curl http://127.0.0.1:8083/recommendations/users/42
 ```
+
+`GET /movies/{id}` adds what MovieLens lacks from Stremio's Cinemeta addon
+(`v3-cinemeta.strem.io/meta/movie/<imdb id>.json`, no API key). It is asked on a
+movie's first request and the answer kept in `movies_db` (`movie_meta`). If
+Cinemeta does not know the film or cannot be reached, the movie still comes back,
+with those fields null or empty.
 
 The UI talks only to `edge` (:8080, start `users` and `recommendations` too):
 
@@ -204,6 +229,12 @@ curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8080/screens/social/sea
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID/followers   # also /following
 curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8080/screens/movies/search?q=par'
 curl -X PUT -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/me/following/$OTHER      # DELETE unfollows
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/movie/1214
+curl -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"status":"to_watch"}' http://127.0.0.1:8080/me/watchlist/1214                          # DELETE removes
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/watchlist
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/feed
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID/activity
 ```
 
 - Register and login are the only public routes; everything else needs the token.
@@ -231,6 +262,11 @@ curl -X PUT -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/me/following
 - `/screens/social` returns people with the caller's taste, `/screens/social/search`
   people by name. Shared movies come back as titles: one `movies` lookup for the
   whole list.
+- `/screens/movie/ID` is the movie page: the details from `movies` plus `status`, the
+  caller's own (`to_watch`, `liked`, `disliked` or `null`), from `users`.
+- `/screens/watchlist` returns the caller's movies as `toWatch` and `watched`, with
+  titles and posters from one `movies` lookup. `/screens/feed` (people the caller
+  follows) and `/screens/profile/ID/activity` (one user) do the same for activity.
 - `/screens/movies/search` is the title autocomplete of the profile form.
 - `/screens/discover` forwards its `genre` and `director` filters to `GET /profiles`
   in `users`.
@@ -392,6 +428,12 @@ Done:
   (`/social` in `users`, `follows` table in `users_db`).
 - `movies` serves title autocomplete (`GET /movies/search`), lookup by id
   (`POST /movies/lookup`) and the genre list (`GET /movies/genres`).
+- Movie pages: `GET /movies/{id}` with synopsis, running time, cast, directors and
+  IMDb rating from Stremio Cinemeta.
+- Watchlist (`/watchlist` in `users`): to watch, then liked or disliked. The Feed
+  tab shows what followed people did, a profile its owner's recent activity.
+  Watched movies and verdicts are exposed at `GET /internal/watched`; the
+  recommendations agent does not use them yet.
 - `ai` wraps Ollama: `POST /embed/query` embeds a request with
   `qwen3-embedding:0.6b`.
 - `movies` seeds MovieLens `ml-32m` into `movies_db`, loads the precomputed

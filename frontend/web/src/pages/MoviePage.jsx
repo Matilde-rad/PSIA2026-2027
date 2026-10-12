@@ -4,13 +4,7 @@ import { apiFetch } from '../api.js'
 import { hueFor, Poster } from '../components/MovieCard.jsx'
 import WatchButtons from '../components/WatchButtons.jsx'
 import { prettyTitle } from '../titles.js'
-
-function runtime(minutes) {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m}min`
-  return m === 0 ? `${h}h` : `${h}h ${m}min`
-}
+import { runtime } from '../time.js'
 
 const STATUS_TEXT = {
   to_watch: 'On your watchlist. Watched it?',
