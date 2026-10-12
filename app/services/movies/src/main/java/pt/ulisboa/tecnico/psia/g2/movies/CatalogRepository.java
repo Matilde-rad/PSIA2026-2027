@@ -9,8 +9,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
@@ -30,6 +33,13 @@ public class CatalogRepository {
     private static final String EMBEDDED_SQL = "SELECT count(*) FROM movie WHERE embedding IS NOT NULL";
 
     private static final String MISSING_SQL = "SELECT count(*) FROM movie WHERE embedding IS NULL";
+
+    private static final String GENRES_SQL = "SELECT DISTINCT unnest(genres) AS genre FROM movie ORDER BY genre";
+
+    private static final String BY_IDS_SQL =
+            "SELECT id, title, year, genres, rating_count, imdb_id FROM movie WHERE id = ANY(?)";
+
+    static final int MAX_SEARCH_WORDS = 6;
 
     private static final String SIMILAR_SQL = """
             SELECT m.id, m.title, m.year, m.genres, m.rating_count, m.imdb_id,
@@ -80,6 +90,96 @@ public class CatalogRepository {
 
     public int embedded() {
         return count(EMBEDDED_SQL);
+    }
+
+    // every genre at least one movie has, in alphabetical order
+    public List<String> genres() {
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(GENRES_SQL);
+                ResultSet rs = ps.executeQuery()) {
+            List<String> genres = new ArrayList<>();
+            while (rs.next()) {
+                genres.add(rs.getString(1));
+            }
+            return genres;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Could not read genres", e);
+        }
+    }
+
+    // Title autocomplete. Every word typed must start a word of the title, in any order, so
+    // "the matrix" finds "Matrix, The (1999)". Titles that begin with what was typed come first,
+    // then the most rated. A leading article does not count on either side: "the matrix" and
+    // "matrix" both put "Matrix, The (1999)" in that first group.
+    public List<MovieSummary> search(String text, int limit) {
+        List<String> words = words(text);
+        if (words.isEmpty()) {
+            return List.of();
+        }
+        StringBuilder sql = new StringBuilder(
+                "SELECT id, title, year, genres, rating_count, imdb_id FROM movie WHERE true");
+        words.forEach(w -> sql.append(" AND title ~* ?"));
+        sql.append(" ORDER BY (regexp_replace(lower(title), '^(the|an|a) ', '') LIKE ?) DESC,"
+                + " rating_count DESC, id LIMIT ?");
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            int i = 1;
+            for (String word : words) {
+                ps.setString(i++, "\\m" + word);
+            }
+            ps.setString(i++, String.join(" ", withoutLeadingArticle(words)) + "%");
+            ps.setInt(i, limit);
+            return summaries(ps);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Catalog query failed", e);
+        }
+    }
+
+    // Letters and digits only, so a word can go into a regular expression as it is.
+    static List<String> words(String text) {
+        if (text == null) {
+            return List.of();
+        }
+        return Arrays.stream(text.toLowerCase(Locale.ROOT).split("[^\\p{L}\\p{N}]+"))
+                .filter(w -> !w.isEmpty())
+                .limit(MAX_SEARCH_WORDS)
+                .toList();
+    }
+
+    static List<String> withoutLeadingArticle(List<String> words) {
+        boolean article = words.size() > 1 && List.of("the", "an", "a").contains(words.getFirst());
+        return article ? words.subList(1, words.size()) : words;
+    }
+
+    // The movies with these ids, in the order asked; ids the catalog does not have are left out.
+    public List<MovieSummary> byIds(List<Integer> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(BY_IDS_SQL)) {
+            ps.setArray(1, c.createArrayOf("int4", ids.toArray()));
+            Map<String, MovieSummary> found = new HashMap<>();
+            summaries(ps).forEach(m -> found.put(m.id(), m));
+            return ids.stream().distinct().map(id -> found.get(String.valueOf(id))).filter(Objects::nonNull).toList();
+        } catch (SQLException e) {
+            throw new IllegalStateException("Catalog query failed", e);
+        }
+    }
+
+    private List<MovieSummary> summaries(PreparedStatement ps) throws SQLException {
+        List<MovieSummary> rows = new ArrayList<>();
+        try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String imdbId = rs.getString("imdb_id");
+                rows.add(new MovieSummary(
+                        String.valueOf(rs.getInt("id")),
+                        rs.getString("title"),
+                        rs.getObject("year", Integer.class),
+                        Arrays.asList((String[]) rs.getArray("genres").getArray()),
+                        rs.getInt("rating_count"),
+                        imdbId == null ? null : posterUrl.formatted(imdbId),
+                        imdbId == null ? null : bannerUrl.formatted(imdbId)));
+            }
+        }
+        return rows;
     }
 
     // The HNSW index returns at most hnsw.ef_search rows (default 40), so it is raised to the limit for

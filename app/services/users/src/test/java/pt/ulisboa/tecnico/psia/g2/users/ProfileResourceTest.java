@@ -36,7 +36,7 @@ class ProfileResourceTest {
         body.put("bio", "likes films");
         body.put("favoriteGenres", List.of(genre));
         body.put("favoriteDirectors", List.of(director));
-        body.put("favoriteMovies", List.of("Alien"));
+        body.put("favoriteMovies", List.of("1214"));
         return body;
     }
 
@@ -59,7 +59,7 @@ class ProfileResourceTest {
                 .statusCode(200)
                 .body("displayName", equalTo("Alice"))
                 .body("favoriteGenres", contains("Horror"))
-                .body("favoriteMovies", contains("Alien"));
+                .body("favoriteMovies", contains("1214"));
     }
 
     // the id in the body is ignored: a profile always belongs to the caller
@@ -104,6 +104,30 @@ class ProfileResourceTest {
                 .body("fields.field", hasItem("bio"));
     }
 
+    // favorite movies are catalog ids; a title is rejected
+    @Test
+    void aFavoriteMovieThatIsNotAnIdIs400() {
+        Account alice = register();
+        Map<String, Object> body = profile("Horror", "Ridley Scott");
+        body.put("favoriteMovies", List.of("Alien"));
+
+        create(alice, body).then()
+                .statusCode(400)
+                .body("error", equalTo("validation"))
+                .body("fields.field", hasItem("favoriteMovies"));
+    }
+
+    @Test
+    void moreThanTenFavoriteMoviesIs400() {
+        Account alice = register();
+        Map<String, Object> body = profile("Horror", "Ridley Scott");
+        body.put("favoriteMovies", List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"));
+
+        create(alice, body).then()
+                .statusCode(400)
+                .body("fields.field", hasItem("favoriteMovies"));
+    }
+
     @Test
     void ownerUpdatesAndDeletes() {
         Account alice = register();
@@ -126,6 +150,48 @@ class ProfileResourceTest {
                 .then()
                 .statusCode(404)
                 .body("error", equalTo("not_found"));
+    }
+
+    @Test
+    void putCreatesTheProfileWhenThereIsNone() {
+        Account alice = register();
+
+        RestAssured.given().auth().oauth2(alice.token()).contentType(ContentType.JSON)
+                .body(profile("Comedy", "Elaine May"))
+                .put("/profiles/" + alice.id())
+                .then()
+                .statusCode(200)
+                .body("userId", equalTo(alice.id()))
+                .body("favoriteGenres", contains("Comedy"));
+
+        RestAssured.given().auth().oauth2(alice.token())
+                .get("/profiles/" + alice.id())
+                .then()
+                .statusCode(200)
+                .body("displayName", equalTo("Alice"));
+    }
+
+    @Test
+    void internalProfilesNeedTheSharedKey() {
+        Account alice = register();
+        create(alice, profile("Horror", "Ridley Scott")).then().statusCode(201);
+
+        RestAssured.given().header("X-Internal-Key", "test-internal-key")
+                .get("/internal/profiles")
+                .then()
+                .statusCode(200)
+                .body("userId", hasItem(alice.id()));
+
+        RestAssured.get("/internal/profiles").then().statusCode(401);
+        RestAssured.given().header("X-Internal-Key", "wrong")
+                .get("/internal/profiles")
+                .then()
+                .statusCode(401);
+        // a user token is not the key
+        RestAssured.given().auth().oauth2(alice.token())
+                .get("/internal/profiles")
+                .then()
+                .statusCode(401);
     }
 
     @Test

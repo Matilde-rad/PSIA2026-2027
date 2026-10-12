@@ -56,4 +56,18 @@ class ContractFixturesTest {
         assertEquals(names(expected), names(actual));
         assertEquals(names(expected.get("user")), names(actual.get("user")));
     }
+
+    @Test
+    void savedProfileMatchesTheProfileFixture() throws Exception {
+        String name = uniqueUsername();
+        String id = post(valid(name)).then().statusCode(201).extract().path("id");
+
+        String saved = RestAssured.given()
+                .auth().oauth2(loginToken(name))
+                .contentType("application/json")
+                .body(CONTRACTS.resolve("profile.json").toFile())
+                .put("/profiles/" + id)
+                .then().statusCode(200).extract().asString();
+        assertEquals(names(fixture("profile.json")), names(MAPPER.readTree(saved)));
+    }
 }

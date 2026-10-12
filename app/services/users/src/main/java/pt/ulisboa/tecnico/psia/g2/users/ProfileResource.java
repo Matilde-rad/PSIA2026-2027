@@ -87,18 +87,23 @@ public class ProfileResource {
         return Response.status(Response.Status.CREATED).entity(profile).build();
     }
 
+    // Creates the profile on the first save, replaces it afterwards.
     @PUT
     @Path("/{userId}")
     @Transactional
-    public Profile update(@PathParam("userId") UUID userId, @Valid @NotNull Profile incoming) {
+    public Profile save(@PathParam("userId") UUID userId, @Valid @NotNull Profile incoming) {
         requireOwner(userId);
         Profile profile = Profile.findById(userId);
-        if (profile == null) throw new NotFoundException();
+        if (profile == null) {
+            profile = new Profile();
+            profile.userId = userId;
+        }
         profile.displayName = incoming.displayName;
         profile.bio = incoming.bio;
         profile.favoriteGenres = orEmpty(incoming.favoriteGenres);
         profile.favoriteDirectors = orEmpty(incoming.favoriteDirectors);
         profile.favoriteMovies = orEmpty(incoming.favoriteMovies);
+        profile.persist();
         return profile;
     }
 

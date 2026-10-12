@@ -2,6 +2,7 @@ package pt.ulisboa.tecnico.psia.g2.recommendations;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -18,6 +19,18 @@ public interface MoviesClient {
     @Path("/similar")
     @Consumes(MediaType.APPLICATION_JSON)
     List<Similar> similar(SimilarRequest request);
+
+    @POST
+    @Path("/lookup")
+    @Consumes(MediaType.APPLICATION_JSON)
+    List<Movie> lookup(LookupRequest request);
+
+    record LookupRequest(List<String> ids) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record Movie(String id, String title) {
+    }
 
     record SimilarRequest(float[] embedding, int limit, int minRatings) {
     }

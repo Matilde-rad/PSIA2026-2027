@@ -24,6 +24,9 @@ public class RecommendationResource {
     @Inject
     SemanticSearch semantic;
 
+    @Inject
+    RecommendationAgent agent;
+
     @GET
     @Path("/users/{userId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -37,6 +40,15 @@ public class RecommendationResource {
     @Produces(MediaType.APPLICATION_JSON)
     public SearchResponse search(@PathParam("userId") String userId, SearchRequest request) {
         return semantic.search(request == null ? null : request.text());
+    }
+
+    // Recomputes one user's cached picks from their profile. edge calls it after a profile is saved.
+    @POST
+    @Path("/users/{userId}/refresh")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public List<Recommendation> refresh(@PathParam("userId") String userId, TasteProfile profile) {
+        return agent.refresh(userId, profile);
     }
 
     @ServerExceptionMapper

@@ -27,4 +27,13 @@ class SemanticSearchTest {
 
         assertEquals(List.of("fits", "famous"), ranked.stream().map(MoviesClient.Similar::id).toList());
     }
+
+    @Test
+    void favoritesAreDroppedById() {
+        List<MoviesClient.Similar> kept = SemanticSearch.without(
+                List.of(movie("1214", 100, 0.9), movie("1200", 100, 0.8), movie("2571", 100, 0.7)),
+                List.of("1214", "2571"));
+
+        assertEquals(List.of("1200"), kept.stream().map(MoviesClient.Similar::id).toList());
+    }
 }

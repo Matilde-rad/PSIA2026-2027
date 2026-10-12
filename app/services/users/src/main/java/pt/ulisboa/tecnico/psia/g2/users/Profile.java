@@ -5,6 +5,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -16,6 +19,10 @@ import java.util.UUID;
 @Entity
 @Table(name = "profiles")
 public class Profile extends PanacheEntityBase {
+
+    static final int MAX_GENRES = 30;
+    static final int MAX_FAVORITES = 10;
+    static final int MAX_ENTRY_LENGTH = 80;
 
     // same id as the account in users
     @Id
@@ -30,15 +37,20 @@ public class Profile extends PanacheEntityBase {
     @Column(length = 500)
     public String bio;
 
+    @Size(max = MAX_GENRES)
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "favorite_genres", nullable = false)
-    public List<String> favoriteGenres = new ArrayList<>();
+    public List<@NotBlank @Size(max = MAX_ENTRY_LENGTH) String> favoriteGenres = new ArrayList<>();
 
+    @Size(max = MAX_FAVORITES)
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "favorite_directors", nullable = false)
-    public List<String> favoriteDirectors = new ArrayList<>();
+    public List<@NotBlank @Size(max = MAX_ENTRY_LENGTH) String> favoriteDirectors = new ArrayList<>();
 
+    // ids of movies in the movies service catalog, not titles
+    @Size(max = MAX_FAVORITES)
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "favorite_movies", nullable = false)
-    public List<String> favoriteMovies = new ArrayList<>();
+    public List<@NotNull @Pattern(regexp = "[0-9]{1,9}", message = "must be a movie id") String> favoriteMovies =
+            new ArrayList<>();
 }
