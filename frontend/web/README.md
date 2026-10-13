@@ -1,4 +1,4 @@
-# frontend/web — Cinemate web UI
+# frontend/web — PlainSight web UI
 
 React 19 + Vite 8, plain JavaScript and CSS. It talks only to `edge`.
 
@@ -61,9 +61,9 @@ Everything is real; there are no static previews left.
   other people's, Edit profile on your own.
 - Movie page at `/movie/ID`, opened by clicking any movie: banner, poster, year,
   running time, IMDb rating, genres, synopsis, directors and cast (from Stremio
-  Cinemeta through `movies`), and a "+ To watch" button.
-- Watchlist: the movies to watch, each with "Liked it", "Didn't like it" and
-  Remove, and below them the watched ones with their verdict.
+  Cinemeta through `movies`), and an "Add to watchlist" button.
+- Watchlist: the movies to watch, each with a Liked / Didn't like control and a
+  ✕ to remove, and below them the watched ones with their verdict.
 - Feed: what the people you follow added to their watchlist, liked or disliked.
 - Favorite movies are picked from the catalog: type part of a title and choose a
   suggestion (arrow keys and Enter work).

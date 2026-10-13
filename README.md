@@ -22,6 +22,7 @@ app/                Maven reactor (Java 21, Quarkus 3.39.4)
   services/ai/        wraps the Ollama embedding model (no database)
   edge/               aggregates services for the UI (no database)
 frontend/web/       web UI (React + Vite), talks only to edge
+scripts/            demo data seeding (just seed)
 infra/terraform/    VMs for the cluster                       (empty)
 infra/ansible/      installs software/configs onto those VMs  (empty)
 deploy/             Kubernetes manifests, monitoring          (Ollama sizing note only)
@@ -254,6 +255,9 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID
 - `/screens/search` asks the AI for 12 movies through `recommendations`, so it also
   needs `ai`, `movies` and Ollama (see *AI and recommendations slice: run locally*).
   When the AI cannot answer it gives 503 `ai_unavailable`.
+- `/screens/search` also takes `exclude` (movie ids already shown) and
+  `POST /screens/home/more` with `{"exclude": [...]}` returns the next For you picks
+  from the caller's profile; neither writes the recommendation cache.
 - A profile screen calls `users` three times (account, profile, follow counts)
   and, on your own screen, `recommendations`, all concurrently via
   `Uni.combine()`, then `movies` once for the favorite movies. It needs `movies`
@@ -483,6 +487,11 @@ MovieLens zip and the pulled model.
 Only port 8000 is published, on 127.0.0.1, so the stack can run next to dev
 mode. Set `INTERNAL_KEY` to override the key that `users` and `recommendations`
 share. `just down` stops the stack and keeps the data; `just reset` also wipes it.
+
+`just seed` (after the first start has finished seeding the catalog) creates about 12
+demo users through edge with profiles, follows and watchlist entries, all with password
+`demo1234`; `just seed http://127.0.0.1:8080` targets edge in dev mode. All their
+activity has the time the script ran. Local stacks only.
 
 TODO — required by the spec: the Kubernetes deployment instructions.
 
