@@ -1,8 +1,11 @@
 package pt.ulisboa.tecnico.psia.g2.recommendations;
 
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -97,6 +100,25 @@ public class RecommendationAgent {
             cache.replace(userId, results);
         }
         return results;
+    }
+
+    // For you's Refresh and Get more. Never cached, so a reload shows the cached set again.
+    public List<Recommendation> more(TasteProfile profile, Collection<String> exclude) {
+        if (profile == null) {
+            return List.of();
+        }
+        String taste;
+        try {
+            taste = profile.text(movieTitles.of(profile.favoriteMovies()));
+        } catch (RuntimeException e) {
+            throw new SemanticSearch.AiUnavailableException(e);
+        }
+        if (taste.isEmpty()) {
+            return List.of();
+        }
+        Set<String> skip = new LinkedHashSet<>(profile.favoriteMovies());
+        skip.addAll(exclude);
+        return semantic.search(taste, skip).results();
     }
 
     private Map<String, List<Recommendation>> searchEach(Map<String, TasteProfile> tastes) {

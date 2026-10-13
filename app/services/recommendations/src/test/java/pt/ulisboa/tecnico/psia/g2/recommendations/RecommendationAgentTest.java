@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import jakarta.ws.rs.ProcessingException;
 import org.junit.jupiter.api.Test;
@@ -236,6 +237,29 @@ class RecommendationAgentTest {
 
         assertThrows(SemanticSearch.AiUnavailableException.class, () -> agent.refresh("1", taste("1", "a")));
 
+        assertTrue(cache.writes.isEmpty());
+    }
+
+    @Test
+    void moreSearchesTheTasteWithFavoritesAndShownIdsExcludedAndCachesNothing() {
+        TasteProfile profile = new TasteProfile("1", null, List.of("Horror"), List.of(), List.of("1214", "404"));
+        titles.known.put("1214", "Alien (1979)");   // 404 is not in the catalog
+        String text = "Horror movies. Similar to Alien (1979)";
+        search.results.put(text, List.of(r(10)));
+
+        assertEquals(List.of(r(10)), agent.more(profile, List.of("7", "1214")));
+
+        assertEquals(List.of(text), search.searched);
+        assertEquals(Set.of("1214", "404", "7"), Set.copyOf(search.excluded.get(0)));
+        assertTrue(cache.writes.isEmpty());
+    }
+
+    @Test
+    void moreWithoutTasteSearchesNothing() {
+        assertTrue(agent.more(taste("1", ""), List.of()).isEmpty());
+        assertTrue(agent.more(null, List.of()).isEmpty());
+
+        assertTrue(search.searched.isEmpty());
         assertTrue(cache.writes.isEmpty());
     }
 }

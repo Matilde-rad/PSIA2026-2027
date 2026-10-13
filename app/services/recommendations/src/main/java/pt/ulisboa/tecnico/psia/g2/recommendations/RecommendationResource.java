@@ -39,7 +39,15 @@ public class RecommendationResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public SearchResponse search(@PathParam("userId") String userId, SearchRequest request) {
-        return semantic.search(request == null ? null : request.text());
+        return request == null ? semantic.search(null, List.of()) : semantic.search(request.text(), request.exclude());
+    }
+
+    @POST
+    @Path("/users/{userId}/more")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public List<Recommendation> more(@PathParam("userId") String userId, MoreRequest request) {
+        return request == null ? List.of() : agent.more(request.profile(), request.exclude());
     }
 
     // Recomputes one user's cached picks from their profile. edge calls it after a profile is saved.
