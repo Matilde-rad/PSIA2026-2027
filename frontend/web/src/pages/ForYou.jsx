@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../api.js'
 import { useAuth } from '../auth.jsx'
 import MovieCard, { hueFor } from '../components/MovieCard.jsx'
+import ResultsToolbar, { PAGE_SIZE } from '../components/ResultsToolbar.jsx'
 import { runtime } from '../time.js'
 import { prettyTitle } from '../titles.js'
 
@@ -11,14 +12,25 @@ export default function ForYou() {
   const [recommendations, setRecommendations] = useState(null)
   const [error, setError] = useState(null)
   const [attempt, setAttempt] = useState(0)
+  // every movie id shown since the load, so Get more and Refresh only bring unseen ones
+  const seen = useRef(new Set())
+  const [busy, setBusy] = useState(null)
+  const [exhausted, setExhausted] = useState(false)
+  const [moreError, setMoreError] = useState(null)
 
   useEffect(() => {
     let ignore = false
     setRecommendations(null)
     setError(null)
+    setBusy(null)
+    setExhausted(false)
+    setMoreError(null)
+    seen.current = new Set()
     apiFetch('/screens/home')
       .then((data) => {
-        if (!ignore) setRecommendations(data.recommendations)
+        if (ignore) return
+        data.recommendations.forEach((rec) => seen.current.add(rec.movieId))
+        setRecommendations(data.recommendations)
       })
       .catch((err) => {
         if (!ignore && err.status !== 401) setError(err)
@@ -27,6 +39,23 @@ export default function ForYou() {
       ignore = true
     }
   }, [attempt])
+
+  async function load(mode) {
+    setBusy(mode)
+    setMoreError(null)
+    try {
+      const data = await apiFetch('/screens/home/more', { method: 'POST', body: { exclude: [...seen.current] } })
+      const page = data.recommendations
+      page.forEach((rec) => seen.current.add(rec.movieId))
+      if (page.length < PAGE_SIZE) setExhausted(true)
+      if (mode === 'more') setRecommendations((current) => [...current, ...page])
+      else if (page.length > 0) setRecommendations(page)
+    } catch (err) {
+      if (err.status !== 401) setMoreError(err)
+    } finally {
+      setBusy(null)
+    }
+  }
 
   if (error) {
     return (
@@ -55,12 +84,20 @@ export default function ForYou() {
 
   return (
     <>
-      <Carousel items={recommendations} />
+      <Carousel key={recommendations[0].movieId} items={recommendations} />
       <div className="movie-grid">
         {recommendations.map((rec) => (
           <MovieCard key={rec.movieId} movieId={rec.movieId} title={rec.title} posterUrl={rec.posterUrl} />
         ))}
       </div>
+      <ResultsToolbar
+        busy={busy}
+        exhausted={exhausted}
+        error={moreError}
+        endText="No more recommendations for your profile."
+        onRefresh={() => load('refresh')}
+        onMore={() => load('more')}
+      />
     </>
   )
 }
