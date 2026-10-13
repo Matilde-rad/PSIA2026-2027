@@ -74,7 +74,7 @@ export default function WatchlistPage() {
         {screen.toWatch.length === 0 ? (
           <div className="state-message">
             <p className="state-title">Nothing to watch yet</p>
-            <p className="state-text">Open a movie and press “+ To watch” to keep it here.</p>
+            <p className="state-text">Open a movie and press “Add to watchlist” to keep it here.</p>
             <Link className="btn btn-primary" to="/">
               Find movies
             </Link>
