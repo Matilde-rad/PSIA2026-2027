@@ -29,7 +29,7 @@ class SearchScreenResourceTest {
         String id = UUID.randomUUID().toString();
         String token = Tokens.valid(id);
         String bearer = "Bearer " + token;
-        SearchRequest request = new SearchRequest("80s horror");
+        SearchRequest request = new SearchRequest("80s horror", null);
         when(recommendations.search(id, request, bearer)).thenReturn(Uni.createFrom().item(new SearchView(
                 List.of(new Recommendation("1258", "Shining, The (1980)", "poster", "banner")))));
 
@@ -47,10 +47,30 @@ class SearchScreenResourceTest {
     }
 
     @Test
+    void theShownMovieIdsAreForwardedAsExclude() {
+        String id = UUID.randomUUID().toString();
+        String token = Tokens.valid(id);
+        String bearer = "Bearer " + token;
+        SearchRequest request = new SearchRequest("80s horror", List.of("1", "2"));
+        when(recommendations.search(id, request, bearer))
+                .thenReturn(Uni.createFrom().item(new SearchView(List.of())));
+
+        RestAssured.given()
+                .auth().oauth2(token)
+                .contentType(ContentType.JSON)
+                .body("{\"text\":\"80s horror\",\"exclude\":[\"1\",\"2\"]}")
+                .post("/screens/search")
+                .then()
+                .statusCode(200);
+
+        verify(recommendations).search(id, request, bearer);
+    }
+
+    @Test
     void aiUnavailableIs503() {
         String id = UUID.randomUUID().toString();
         String token = Tokens.valid(id);
-        when(recommendations.search(id, new SearchRequest("x"), "Bearer " + token)).thenReturn(
+        when(recommendations.search(id, new SearchRequest("x", null), "Bearer " + token)).thenReturn(
                 Uni.createFrom().failure(new WebApplicationException(Response.status(503).build())));
 
         RestAssured.given()
@@ -67,7 +87,7 @@ class SearchScreenResourceTest {
     void otherFailuresAre502() {
         String id = UUID.randomUUID().toString();
         String token = Tokens.valid(id);
-        when(recommendations.search(id, new SearchRequest("x"), "Bearer " + token))
+        when(recommendations.search(id, new SearchRequest("x", null), "Bearer " + token))
                 .thenReturn(Uni.createFrom().failure(new RuntimeException("recommendations is down")));
 
         RestAssured.given()

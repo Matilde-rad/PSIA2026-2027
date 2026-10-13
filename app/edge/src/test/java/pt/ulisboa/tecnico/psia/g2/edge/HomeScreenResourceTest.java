@@ -12,9 +12,11 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.smallrye.mutiny.Uni;
+import jakarta.ws.rs.core.Response;
 import java.util.List;
 import java.util.UUID;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.jboss.resteasy.reactive.ClientWebApplicationException;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -23,6 +25,10 @@ class HomeScreenResourceTest {
     @InjectMock
     @RestClient
     RecommendationsClient recommendations;
+
+    @InjectMock
+    @RestClient
+    ProfilesClient profiles;
 
     @Test
     void homeReturnsTheCallersRecommendations() {
@@ -43,6 +49,47 @@ class HomeScreenResourceTest {
                 .body("recommendations[0].title", equalTo("Arrival"));
 
         verify(recommendations).forUser(id, bearer);
+    }
+
+    @Test
+    void moreSendsTheCallersOwnProfileAndTheShownIds() {
+        String id = UUID.randomUUID().toString();
+        String token = Tokens.valid(id);
+        String bearer = "Bearer " + token;
+        Profile profile = new Profile(id, "Ana", "bio", List.of("Sci-Fi"), List.of(), List.of("1"));
+        when(profiles.get(id, bearer)).thenReturn(Uni.createFrom().item(profile));
+        when(recommendations.more(id, new MoreRequest(profile, List.of("7")), bearer))
+                .thenReturn(Uni.createFrom().item(List.of(new Recommendation("m2", "Dune", null, null))));
+
+        RestAssured.given()
+                .auth().oauth2(token)
+                .contentType(ContentType.JSON)
+                .body("{\"exclude\":[\"7\"]}")
+                .post("/screens/home/more")
+                .then()
+                .statusCode(200)
+                .body("recommendations[0].movieId", equalTo("m2"));
+
+        verify(recommendations).more(id, new MoreRequest(profile, List.of("7")), bearer);
+    }
+
+    @Test
+    void moreWithoutAProfileIsEmpty() {
+        String id = UUID.randomUUID().toString();
+        String token = Tokens.valid(id);
+        when(profiles.get(id, "Bearer " + token)).thenReturn(
+                Uni.createFrom().failure(new ClientWebApplicationException(Response.status(404).build())));
+
+        RestAssured.given()
+                .auth().oauth2(token)
+                .contentType(ContentType.JSON)
+                .body("{\"exclude\":[]}")
+                .post("/screens/home/more")
+                .then()
+                .statusCode(200)
+                .body("recommendations.size()", equalTo(0));
+
+        verifyNoInteractions(recommendations);
     }
 
     @Test

@@ -35,7 +35,7 @@ public class SearchScreenResource {
     }
 
     // recommendations answers 503 when the model or the catalog could not answer.
-    private static boolean aiUnavailable(Throwable t) {
+    static boolean aiUnavailable(Throwable t) {
         return t instanceof WebApplicationException e && e.getResponse().getStatus() == 503;
     }
 }
