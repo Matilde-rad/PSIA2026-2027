@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 import { apiFetch } from './api.js'
 import { useAuth } from './auth.jsx'
+import Avatar from './components/Avatar.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import HomePage from './pages/HomePage.jsx'
@@ -41,18 +42,22 @@ function Layout() {
       <header className="nav">
         <div className="nav-inner">
           <Link className="wordmark" to="/">
-            cine<span>mate</span>
+            Plain<span>Sight</span>
           </Link>
           <nav className="nav-tabs">
             <NavLink className="nav-tab" to="/" end>Home</NavLink>
             <NavLink className="nav-tab" to="/feed">Feed</NavLink>
             <NavLink className="nav-tab" to="/watchlist">Watchlist</NavLink>
             <NavLink className="nav-tab" to="/social">Social</NavLink>
-            <NavLink className="nav-tab" to={`/profile/${user.id}`}>Profile</NavLink>
           </nav>
-          <button className="btn btn-ghost nav-logout" type="button" onClick={handleLogout}>
-            Log out
-          </button>
+          <div className="nav-end">
+            <button className="btn btn-ghost" type="button" onClick={handleLogout}>
+              Log out
+            </button>
+            <NavLink className="nav-avatar" to={`/profile/${user.id}`} aria-label="Your profile" title={user.username}>
+              <Avatar name={user.username} />
+            </NavLink>
+          </div>
         </div>
       </header>
       <main className="page">
