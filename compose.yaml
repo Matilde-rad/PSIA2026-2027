@@ -1,0 +1,156 @@
+name: g2
+
+services:
+  users-db:
+    image: postgres:18.6
+    environment:
+      POSTGRES_DB: users_db
+      POSTGRES_USER: users
+      POSTGRES_PASSWORD: users
+    volumes:
+      - users-db-data:/var/lib/postgresql
+    healthcheck:
+      # pg_isready is similar to a ping for postgres dbs
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "users", "-d", "users_db"]
+      interval: 5s
+      retries: 20
+
+  users:
+    build:
+      context: ./app
+      args:
+        MODULE: services/users
+    depends_on:
+      users-db:
+        condition: service_healthy
+    environment:
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://users-db:5432/users_db
+      QUARKUS_DATASOURCE_USERNAME: users
+      QUARKUS_DATASOURCE_PASSWORD: users
+      USERS_INTERNAL_KEY: ${INTERNAL_KEY:-compose-internal-key}
+      SMALLRYE_JWT_SIGN_KEY_LOCATION: file:/etc/jwt/privateKey.pem
+      MP_JWT_VERIFY_PUBLICKEY_LOCATION: file:/etc/jwt/publicKey.pem
+    volumes:
+      - ./app/keys/dev:/etc/jwt:ro
+    mem_limit: 512m
+
+  edge:
+    build:
+      context: ./app
+      args:
+        MODULE: edge
+    environment:
+      MP_JWT_VERIFY_PUBLICKEY_LOCATION: file:/etc/jwt/publicKey.pem
+    volumes:
+      - type: bind
+        source: ./app/keys/dev/publicKey.pem
+        target: /etc/jwt/publicKey.pem
+        read_only: true
+        bind:
+          create_host_path: false # to prevent silent failures
+    mem_limit: 512m
+
+  movies-db:
+    image: pgvector/pgvector:0.8.7-pg18
+    environment:
+      POSTGRES_DB: movies_db
+      POSTGRES_USER: movies
+      POSTGRES_PASSWORD: movies
+    volumes:
+      - movies-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "movies", "-d", "movies_db"]
+      interval: 5s
+      retries: 20
+
+  recs-db:
+    image: postgres:18.6
+    environment:
+      POSTGRES_DB: recs_db
+      POSTGRES_USER: recs
+      POSTGRES_PASSWORD: recs
+    volumes:
+      - recs-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "recs", "-d", "recs_db"]
+      interval: 5s
+      retries: 20
+
+  ollama:
+    image: ollama/ollama:0.35.1
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      # the image has no curl or wget
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      retries: 20
+
+  ollama-pull:
+    image: ollama/ollama:0.35.1
+    environment:
+      OLLAMA_HOST: ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    # pulls only when the model is not already in the ollama-models volume
+    entrypoint: ["/bin/sh", "-c", "ollama show qwen3-embedding:0.6b >/dev/null 2>&1 || ollama pull qwen3-embedding:0.6b"]
+    restart: "no"
+
+  ai:
+    build:
+      context: ./app
+      args:
+        MODULE: services/ai
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
+    mem_limit: 512m
+
+  movies:
+    build:
+      context: ./app
+      args:
+        MODULE: services/movies
+    depends_on:
+      movies-db:
+        condition: service_healthy
+    environment:
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://movies-db:5432/movies_db
+      QUARKUS_DATASOURCE_USERNAME: movies
+      QUARKUS_DATASOURCE_PASSWORD: movies
+      MOVIES_EMBEDDINGS_FILE: /data/embeddings/movielens_qwen3_embedding_0.6b.csv
+      MOVIES_SEED_CACHE_DIR: /cache
+    volumes:
+      - ./data:/data:ro
+      - movies-cache:/cache
+    mem_limit: 1g
+
+  recommendations:
+    build:
+      context: ./app
+      args:
+        MODULE: services/recommendations
+    depends_on:
+      recs-db:
+        condition: service_healthy
+    environment:
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://recs-db:5432/recs_db
+      QUARKUS_DATASOURCE_USERNAME: recs
+      QUARKUS_DATASOURCE_PASSWORD: recs
+      RECS_USERS_INTERNAL_KEY: ${INTERNAL_KEY:-compose-internal-key}
+    mem_limit: 512m
+
+  web:
+    build: ./frontend/web
+    depends_on:
+      - edge
+    ports:
+      - "127.0.0.1:8000:80"
+
+volumes:
+  users-db-data:
+  movies-db-data:
+  recs-db-data:
+  movies-cache:
+  ollama-models:

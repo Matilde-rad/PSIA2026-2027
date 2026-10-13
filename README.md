@@ -451,15 +451,40 @@ Not started:
   so they must not be reachable from outside the cluster.
 - Resilience on the `edge` clients. No retry, timeout or circuit breaker —
   an upstream failure propagates straight to the caller.
-- `compose.yaml` for the local container deployment.
 - Terraform + Ansible cluster provisioning, and the app's Kubernetes manifests.
 - Prometheus + Grafana, and the throughput/latency study.
 - GitLab CI + Argo CD.
 
 ## Setup instructions
 
-TODO — required by the spec: full instructions for bringing the system up from
-a clean machine, for both the Docker Compose deployment and the Kubernetes one.
+### Run with Docker Compose
+
+Prerequisites: Docker Desktop running, JDK 21+, Maven, Node and
+[`just`](https://github.com/casey/just), `git lfs pull` (`data/embeddings` holds
+the 1.2 GB vector file), and `./app/keys/gen-dev-keys.sh` once.
+
+```bash
+just up
+```
+
+`just up` compiles the services and the web app on this machine
+(`just build`), then runs `docker compose up --build`. The Dockerfiles only
+package what was compiled; see [deploy/images.md](deploy/images.md).
+
+Then open http://127.0.0.1:8000, register, log in and search.
+
+The first start takes a few minutes: Ollama pulls `qwen3-embedding:0.6b`,
+`movies` downloads and seeds MovieLens, and then the vectors load in the
+background. Search returns nothing until loading finishes;
+`docker compose exec edge curl -s http://movies:8080/movies/embeddings` shows
+the progress up to 87585. Later starts reuse the seeded databases, the cached
+MovieLens zip and the pulled model.
+
+Only port 8000 is published, on 127.0.0.1, so the stack can run next to dev
+mode. Set `INTERNAL_KEY` to override the key that `users` and `recommendations`
+share. `just down` stops the stack and keeps the data; `just reset` also wipes it.
+
+TODO — required by the spec: the Kubernetes deployment instructions.
 
 For the AI and recommendations slice in dev mode, see
 *AI and recommendations slice: run locally* above.
