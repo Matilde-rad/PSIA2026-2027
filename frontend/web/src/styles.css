@@ -1,26 +1,25 @@
 /*
  * The only stylesheet of the app (imported once from main.jsx).
- * Inspired by Movie Paradise's dark theme; the accent is our own
- * coral-to-violet (theirs is pink-to-purple) and the font is Plus Jakarta Sans.
+ * PlainSight: a deep green dark theme with a solid sage accent,
+ * Fraunces for headings and Figtree for the body.
  */
 
 /* ---------- Design tokens ---------- */
 :root {
-  --bg: #1a1a1a;
-  --surface: #242424;
-  --surface-muted: #2e2e2e;
-  --border: #454545;
-  --text: #fafafa;
-  --text-muted: #a3a3a3;
-  --primary-bg: #fafafa;
-  --primary-text: #1a1a1a;
-  --accent-from: #ff7a5c;
-  --accent-to: #8b5cf6;
-  --accent: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+  --bg: #0f1a14;
+  --surface: #16241c;
+  --surface-muted: #1e3026;
+  --border: #2c4236;
+  --text: #e8f0e9;
+  --text-muted: #9bb0a2;
+  --accent: #8fd18b;
+  --primary-bg: var(--accent);
+  --primary-text: #0f1a14;
   --danger: #f87171;
   --radius: 10px;
   --radius-lg: 14px;
-  --font: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
   --nav-height: 60px;
   --page-width: 1120px;
   color-scheme: dark;
@@ -54,7 +53,7 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent-from);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -69,17 +68,15 @@ img {
 }
 
 .wordmark {
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 600;
   font-size: 22px;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
   text-decoration: none;
 }
 
 .wordmark span {
-  background: var(--accent);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--accent);
 }
 
 .nav {
@@ -87,7 +84,7 @@ img {
   top: 0;
   z-index: 10;
   height: var(--nav-height);
-  background: rgba(26, 26, 26, 0.85);
+  background: rgba(15, 26, 20, 0.85);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
@@ -139,8 +136,23 @@ img {
   background: var(--accent);
 }
 
-.nav-logout {
+.nav-end {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-avatar {
+  display: block;
+  border-radius: 50%;
+  text-decoration: none;
+}
+
+.nav-avatar .avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 13px;
 }
 
 /* ---------- Page ---------- */
@@ -155,9 +167,10 @@ img {
 }
 
 .page-title {
+  font-family: var(--font-display);
   font-size: 32px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .page-subtitle {
@@ -180,14 +193,14 @@ img {
   transition: background-color 150ms, border-color 150ms, opacity 150ms;
 }
 
-/* Light button, dark text. */
+/* Sage button, dark text. */
 .btn-primary {
   background: var(--primary-bg);
   color: var(--primary-text);
 }
 
 .btn-primary:hover {
-  background: #e5e5e5;
+  background: #a6dca2;
 }
 
 .btn-secondary {
@@ -225,9 +238,7 @@ img {
   display: grid;
   place-items: center;
   padding: 24px;
-  background:
-    radial-gradient(ellipse at top center, rgba(139, 92, 246, 0.16), transparent 60%),
-    var(--bg);
+  background: var(--bg);
 }
 
 .auth-card {
@@ -242,9 +253,10 @@ img {
 }
 
 .auth-title {
+  font-family: var(--font-display);
   font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .auth-subtitle {
@@ -291,8 +303,8 @@ img {
 }
 
 .field-input:focus {
-  border-color: var(--accent-from);
-  box-shadow: 0 0 0 3px rgba(255, 122, 92, 0.25);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(143, 209, 139, 0.25);
   outline: none;
 }
 
@@ -375,13 +387,14 @@ img {
   gap: 24px;
   padding: 32px;
   margin-bottom: 32px;
-  background: linear-gradient(135deg, rgba(255, 122, 92, 0.10), rgba(139, 92, 246, 0.10)), var(--surface);
+  background: var(--surface);
 }
 
 .profile-name {
+  font-family: var(--font-display);
   font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .profile-meta {
@@ -401,6 +414,7 @@ img {
 }
 
 .state-title {
+  font-family: var(--font-display);
   font-size: 18px;
   font-weight: 700;
   color: var(--text);
@@ -444,8 +458,9 @@ img {
 }
 
 .section-title {
+  font-family: var(--font-display);
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .ask-bar {
@@ -460,7 +475,7 @@ img {
 }
 
 .ask-bar:focus-within {
-  border-color: var(--accent-from);
+  border-color: var(--accent);
 }
 
 .ask-input {
@@ -495,7 +510,7 @@ img {
 .chip-selected {
   border-color: transparent;
   background: var(--accent);
-  color: #fff;
+  color: #0f1a14;
 }
 
 /* For you carousel: scrolls sideways inside itself, never the page. */
@@ -533,8 +548,9 @@ img {
 
 .banner-title {
   position: relative;
+  font-family: var(--font-display);
   font-size: clamp(24px, 4vw, 44px);
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.1;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
 }
@@ -548,8 +564,10 @@ img {
 .carousel-lines {
   position: absolute;
   left: 24px;
+  right: 24px;
   bottom: 24px;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -619,13 +637,27 @@ img {
   transition: transform 150ms ease;
 }
 
-/* Accent-tinted lift on hover. */
+/* Refresh / Get more under the results. */
+.results-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.results-note {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* Lift on hover. */
 .movie-card:hover {
   transform: translateY(-4px);
 }
 
 .movie-card:hover .poster {
-  box-shadow: 0 14px 32px rgba(139, 92, 246, 0.28);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45);
 }
 
 /* Placeholder poster: a gradient whose hue comes from the title. */
@@ -673,7 +705,7 @@ img {
   color: var(--text-muted);
 }
 
-/* Initials circle with a gradient ring. */
+/* DiceBear face (initials when the image fails) in a sage ring. */
 .avatar {
   width: 44px;
   height: 44px;
@@ -684,10 +716,15 @@ img {
   font-weight: 700;
   font-size: 15px;
   color: var(--text);
-  border: 2px solid transparent;
-  background:
-    linear-gradient(var(--surface-muted), var(--surface-muted)) padding-box,
-    var(--accent) border-box;
+  border: 2px solid var(--accent);
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .avatar-lg {
@@ -823,8 +860,8 @@ img {
 }
 
 .tag-input:focus-within {
-  border-color: var(--accent-from);
-  box-shadow: 0 0 0 3px rgba(255, 122, 92, 0.25);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(143, 209, 139, 0.25);
 }
 
 .tag {
@@ -933,7 +970,7 @@ a.btn {
 }
 
 .search-box:focus-within {
-  border-color: var(--accent-from);
+  border-color: var(--accent);
 }
 
 .user-card {
@@ -965,6 +1002,7 @@ a.btn {
 }
 
 .profile-name {
+  font-family: var(--font-display);
   overflow-wrap: anywhere;
 }
 
@@ -1071,7 +1109,7 @@ a.banner {
   align-items: flex-end;
   gap: 28px;
   padding: 32px;
-  background: linear-gradient(90deg, rgba(26, 26, 26, 0.94) 0%, rgba(26, 26, 26, 0.78) 55%, rgba(26, 26, 26, 0.45) 100%);
+  background: linear-gradient(90deg, rgba(15, 26, 20, 0.94) 0%, rgba(15, 26, 20, 0.78) 55%, rgba(15, 26, 20, 0.45) 100%);
 }
 
 .movie-hero-poster {
@@ -1126,17 +1164,63 @@ a.banner {
   gap: 8px;
 }
 
-.btn-verdict {
-  color: #fff;
-  border-color: transparent;
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface-muted);
 }
 
-.btn-liked {
-  background: #15803d;
+.segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
 }
 
-.btn-disliked {
-  background: #b91c1c;
+.segment:hover {
+  color: var(--text);
+}
+
+.segment:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.segment + .segment {
+  border-left: 1px solid var(--border);
+}
+
+.segment-selected {
+  background: rgba(143, 209, 139, 0.14);
+  color: var(--accent);
+}
+
+.segment-add {
+  color: var(--accent);
+}
+
+.segment-add:hover {
+  background: rgba(143, 209, 139, 0.14);
+  color: var(--accent);
+}
+
+.segmented-sm .segment {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.btn-icon {
+  padding: 8px;
+  line-height: 1;
 }
 
 /* Watchlist rows and activity lines share the small poster on the side */

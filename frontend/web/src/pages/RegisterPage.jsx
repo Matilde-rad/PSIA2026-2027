@@ -59,7 +59,7 @@ export default function RegisterPage() {
     <div className="auth-page">
       <div className="auth-card">
         <span className="wordmark">
-          cine<span>mate</span>
+          Plain<span>Sight</span>
         </span>
         <h1 className="auth-title">Create your account</h1>
         <p className="auth-subtitle">Pick a username and a password to get started.</p>

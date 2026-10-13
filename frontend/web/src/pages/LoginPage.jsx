@@ -38,7 +38,7 @@ export default function LoginPage() {
     <div className="auth-page">
       <div className="auth-card">
         <span className="wordmark">
-          cine<span>mate</span>
+          Plain<span>Sight</span>
         </span>
         <h1 className="auth-title">Welcome back</h1>
         <p className="auth-subtitle">Log in to see what to watch next.</p>
