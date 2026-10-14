@@ -18,7 +18,12 @@ coverage/
 *.tfstate
 *.tfstate.*
 *.tfvars
+*.tfvars.json
 infra/ansible/inventory.ini
+*.retry
+# cluster credentials copied from the master after kubeadm init
+kubeconfig
+admin.conf
 
 # --- Local env ---
 .env
@@ -40,3 +45,8 @@ app/keys/dev/
 !app/services/users/src/test/resources/test-*.pem
 !app/edge/src/test/resources/test-*.pem
 javac.*.args
+
+# --- GCP / SSH keys ---
+# infra/secrets/ holds the GCP service-account key (gcp-key.json) and the SSH key pair
+# made by `just keys`. Neither is ever committed; see infra/terraform/README.md.
+infra/secrets/
