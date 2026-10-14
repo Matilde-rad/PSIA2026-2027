@@ -3,3 +3,5 @@
 - ansible.builtin.import_playbook: 2-k8s-install.yml
 - ansible.builtin.import_playbook: 3-cluster-init.yml
 - ansible.builtin.import_playbook: 4-workers-join.yml
+- ansible.builtin.import_playbook: 5-build-images.yml
+- ansible.builtin.import_playbook: 6-deploy.yml

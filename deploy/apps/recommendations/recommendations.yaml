@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: recommendations
+spec:
+  selector:
+    app: recommendations
+  ports:
+    - port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recommendations
+spec:
+  replicas: 1 # the agent's no-overlap guard is per instance
+  selector:
+    matchLabels:
+      app: recommendations
+  template:
+    metadata:
+      labels:
+        app: recommendations
+    spec:
+      containers:
+        - name: recommendations
+          image: recommendations
+          env:
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              value: jdbc:postgresql://recs-db:5432/recs_db
+            - name: QUARKUS_DATASOURCE_USERNAME
+              value: recs
+            - name: QUARKUS_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: g2
+                  key: recs-db-password
+            - name: RECS_USERS_INTERNAL_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: g2
+                  key: internal-key
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: 512Mi
+            limits:
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /q/health/started
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: 8080

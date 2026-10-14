@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: users
+spec:
+  selector:
+    app: users
+  ports:
+    - port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: users
+  template:
+    metadata:
+      labels:
+        app: users
+    spec:
+      containers:
+        - name: users
+          image: users
+          env:
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              value: jdbc:postgresql://users-db:5432/users_db
+            - name: QUARKUS_DATASOURCE_USERNAME
+              value: users
+            - name: QUARKUS_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: g2
+                  key: users-db-password
+            - name: USERS_INTERNAL_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: g2
+                  key: internal-key
+            - name: SMALLRYE_JWT_SIGN_KEY_LOCATION
+              value: file:/etc/jwt/privateKey.pem
+            - name: MP_JWT_VERIFY_PUBLICKEY_LOCATION
+              value: file:/etc/jwt/publicKey.pem
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: 512Mi
+            limits:
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /q/health/started
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: 8080
+          volumeMounts:
+            - name: jwt
+              mountPath: /etc/jwt
+              readOnly: true
+      volumes:
+        - name: jwt
+          secret:
+            secretName: jwt

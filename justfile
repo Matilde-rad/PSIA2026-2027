@@ -34,3 +34,11 @@ mgmt:
 # stop the management container (it is removed on stop)
 mgmt-stop:
     docker stop g2-mgmt
+
+# build and push the images on the build VM
+images:
+    docker exec -w /g2/infra/ansible g2-mgmt ansible-playbook 5-build-images.yml
+
+# deploy the app with the images of the current commit
+deploy:
+    docker exec -w /g2/infra/ansible g2-mgmt ansible-playbook 6-deploy.yml

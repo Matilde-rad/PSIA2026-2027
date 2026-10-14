@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: movies-db
+spec:
+  selector:
+    app: movies-db
+  ports:
+    - port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: movies-db
+spec:
+  serviceName: movies-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: movies-db
+  template:
+    metadata:
+      labels:
+        app: movies-db
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:0.8.7-pg18
+          env:
+            - name: POSTGRES_DB
+              value: movies_db
+            - name: POSTGRES_USER
+              value: movies
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: g2
+                  key: movies-db-password
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "movies", "-d", "movies_db"]
+            periodSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: local-path
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi

@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: g2
+
+resources:
+  - namespace.yaml
+  - apps/users/users-db.yaml
+  - apps/users/users.yaml
+  - apps/movies/movies-db.yaml
+  - apps/movies/movies.yaml
+  - apps/recommendations/recs-db.yaml
+  - apps/recommendations/recommendations.yaml
+  - apps/ai/ollama.yaml
+  - apps/ai/ai.yaml
+  - apps/edge/edge.yaml
+  - apps/web/web.yaml
+
+# 6-deploy.yml sets newName and newTag
+images:
+  - name: users
+    newName: 10.164.0.11:5000/users
+    newTag: latest
+  - name: movies
+    newName: 10.164.0.11:5000/movies
+    newTag: latest
+  - name: recommendations
+    newName: 10.164.0.11:5000/recommendations
+    newTag: latest
+  - name: ai
+    newName: 10.164.0.11:5000/ai
+    newTag: latest
+  - name: edge
+    newName: 10.164.0.11:5000/edge
+    newTag: latest
+  - name: web
+    newName: 10.164.0.11:5000/web
+    newTag: latest

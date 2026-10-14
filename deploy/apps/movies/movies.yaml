@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: movies
+spec:
+  selector:
+    app: movies
+  ports:
+    - port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: movies
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: movies
+  template:
+    metadata:
+      labels:
+        app: movies
+    spec:
+      # the embeddings CSV is only on worker1
+      nodeSelector:
+        kubernetes.io/hostname: worker1
+      containers:
+        - name: movies
+          image: movies
+          env:
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              value: jdbc:postgresql://movies-db:5432/movies_db
+            - name: QUARKUS_DATASOURCE_USERNAME
+              value: movies
+            - name: QUARKUS_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: g2
+                  key: movies-db-password
+            - name: MOVIES_EMBEDDINGS_FILE
+              value: /data/embeddings/movielens_qwen3_embedding_0.6b.csv
+            - name: MOVIES_SEED_CACHE_DIR
+              value: /cache
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: 1Gi
+            limits:
+              memory: 1Gi
+          # the first start seeds the database, allow 20 min
+          startupProbe:
+            httpGet:
+              path: /q/health/started
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 120
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: 8080
+          volumeMounts:
+            - name: data
+              mountPath: /data
+              readOnly: true
+            - name: cache
+              mountPath: /cache
+      volumes:
+        - name: data
+          hostPath:
+            path: /srv/g2-data
+            type: Directory
+        - name: cache
+          emptyDir: {}

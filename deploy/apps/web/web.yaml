@@ -1,0 +1,29 @@
+# The entry point: port 80 on worker1, so the app is at http://<worker1 public IP>.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: worker1
+      containers:
+        - name: web
+          image: web
+          ports:
+            - containerPort: 80
+              hostPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80

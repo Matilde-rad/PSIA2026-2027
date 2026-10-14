@@ -1,0 +1,67 @@
+# ClusterIP only: Ollama has no authentication. See deploy/ollama.md.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+spec:
+  selector:
+    app: ollama
+  ports:
+    - port: 11434
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ollama
+spec:
+  serviceName: ollama
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      initContainers:
+        - name: pull-model
+          image: ollama/ollama:0.35.1
+          command:
+            - /bin/sh
+            - -c
+            - |
+              ollama serve &
+              until ollama list >/dev/null 2>&1; do sleep 1; done
+              ollama show qwen3-embedding:0.6b >/dev/null 2>&1 || ollama pull qwen3-embedding:0.6b
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+      containers:
+        - name: ollama
+          image: ollama/ollama:0.35.1
+          env:
+            # default is 127.0.0.1
+            - name: OLLAMA_HOST
+              value: 0.0.0.0:11434
+            - name: OLLAMA_KEEP_ALIVE
+              value: 30m
+          ports:
+            - containerPort: 11434
+          # the image has no curl or wget
+          readinessProbe:
+            exec:
+              command: ["ollama", "list"]
+            periodSeconds: 5
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+  volumeClaimTemplates:
+    - metadata:
+        name: models
+      spec:
+        storageClassName: local-path
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi

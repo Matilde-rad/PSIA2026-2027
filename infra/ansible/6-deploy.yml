@@ -1,0 +1,109 @@
+---
+# Step 6: deploy the app (deploy/) with kustomize.
+# https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/
+
+- name: Copy the movie embeddings to worker1
+  hosts: worker1
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Create the data directory
+      ansible.builtin.file:
+        path: /srv/g2-data
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+
+    - name: Copy data/embeddings
+      ansible.posix.synchronize:
+        src: "{{ playbook_dir | dirname | dirname }}/data/embeddings/"
+        dest: /srv/g2-data/embeddings/
+        delete: true
+      become: false
+
+# Runs in the mgmt container (kubectl + kubeconfig).
+- name: Deploy the app
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    repo_src: "{{ playbook_dir | dirname | dirname }}"
+    secrets_dir: "{{ repo_src }}/infra/secrets/app"
+    registry: "{{ hostvars[groups['build'][0]].internal_ip }}:5000"
+    # override with -e tag=<sha>
+    tag: "{{ lookup('ansible.builtin.pipe', 'git -C ' ~ repo_src ~ ' rev-parse --short HEAD') }}"
+    local_path_version: v0.0.37
+
+  tasks:
+    - name: Install local-path-provisioner
+      ansible.builtin.command: >
+        kubectl apply -f
+        https://raw.githubusercontent.com/rancher/local-path-provisioner/{{ local_path_version }}/deploy/local-path-storage.yaml
+      register: local_path
+      changed_when: "'created' in local_path.stdout or 'configured' in local_path.stdout"
+
+    # Made once: Postgres only reads its password when it creates the database.
+    - name: Create the secrets directory
+      ansible.builtin.file:
+        path: "{{ secrets_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Make the JWT key pair, database passwords and internal key (once)
+      ansible.builtin.shell: |
+        umask 077
+        openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out privateKey.pem
+        openssl rsa -pubout -in privateKey.pem -out publicKey.pem
+        for name in users-db-password movies-db-password recs-db-password internal-key; do
+          openssl rand -hex 24 > "$name"
+        done
+      args:
+        chdir: "{{ secrets_dir }}"
+        creates: "{{ secrets_dir }}/privateKey.pem"
+
+    - name: Create the namespace
+      ansible.builtin.command: kubectl apply -f {{ repo_src }}/deploy/namespace.yaml
+      register: namespace
+      changed_when: "'created' in namespace.stdout"
+
+    # create --dry-run | apply = create or update
+    - name: Create or update the Secrets
+      ansible.builtin.shell: |
+        set -o pipefail
+        kubectl -n g2 create secret generic jwt \
+          --from-file=privateKey.pem --from-file=publicKey.pem \
+          --dry-run=client -o yaml | kubectl apply -f -
+        kubectl -n g2 create secret generic g2 \
+          --from-literal=users-db-password="$(cat users-db-password)" \
+          --from-literal=movies-db-password="$(cat movies-db-password)" \
+          --from-literal=recs-db-password="$(cat recs-db-password)" \
+          --from-literal=internal-key="$(cat internal-key)" \
+          --dry-run=client -o yaml | kubectl apply -f -
+      args:
+        chdir: "{{ secrets_dir }}"
+        executable: /bin/bash
+      register: secrets
+      changed_when: "'created' in secrets.stdout or 'configured' in secrets.stdout"
+
+    - name: Point the images at the registry and this commit
+      ansible.builtin.replace:
+        path: "{{ repo_src }}/deploy/kustomization.yaml"
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      loop:
+        - { regexp: 'newName: \S+:5000/', replace: "newName: {{ registry }}/" }
+        - { regexp: 'newTag: \S+', replace: "newTag: {{ tag }}" }
+
+    - name: Apply the manifests
+      ansible.builtin.command: kubectl apply -k {{ repo_src }}/deploy
+      register: apply
+      changed_when: "'created' in apply.stdout or 'configured' in apply.stdout"
+
+    - name: Show where the app is
+      ansible.builtin.debug:
+        msg: >-
+          Deployed {{ tag }}. Once `kubectl -n g2 get pods` shows everything Ready, the
+          app is at http://{{ hostvars['worker1'].ansible_host }}
