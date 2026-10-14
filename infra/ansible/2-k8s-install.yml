@@ -29,7 +29,8 @@
         mode: "0755"
 
     # kubelet and containerd must use the same cgroup driver (systemd).
-    - name: Make containerd use the systemd cgroup driver
+    # config_path: read the registry hosts.toml from 1-node-prep.yml (no default in 2.0/2.1).
+    - name: Configure containerd (systemd cgroups, registry hosts)
       ansible.builtin.copy:
         dest: /etc/containerd/config.toml
         content: |
@@ -37,6 +38,9 @@
 
           [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc.options]
             SystemdCgroup = true
+
+          [plugins.'io.containerd.cri.v1.images'.registry]
+            config_path = '/etc/containerd/certs.d'
         mode: "0644"
       notify: Restart containerd
 

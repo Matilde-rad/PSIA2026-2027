@@ -1,0 +1,160 @@
+---
+# Step 5: build the images on the build VM and push them to its registry
+# (plain HTTP on port 5000, internal only).
+# https://distribution.github.io/distribution/about/deploying/
+
+- name: Build and push the images
+  hosts: build
+  become: true
+  gather_facts: false
+
+  vars:
+    registry: "{{ internal_ip }}:5000"
+    maven_version: 3.9.12
+    maven_url: https://archive.apache.org/dist/maven/maven-3/{{ maven_version }}/binaries/apache-maven-{{ maven_version }}-bin.tar.gz
+    repo_src: "{{ playbook_dir | dirname | dirname }}"
+    repo_dir: /home/ubuntu/g2
+    # .git is not copied to the VM
+    tag: "{{ lookup('ansible.builtin.pipe', 'git -C ' ~ repo_src ~ ' rev-parse --short HEAD') }}"
+    # image name: MODULE build-arg
+    java_images:
+      users: services/users
+      movies: services/movies
+      recommendations: services/recommendations
+      ai: services/ai
+      edge: edge
+
+  tasks:
+    # cloud-init holds the apt lock on a fresh VM
+    - name: Wait for the VM to accept SSH
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+
+    - name: Wait for cloud-init to finish
+      ansible.builtin.wait_for:
+        path: /var/lib/cloud/instance/boot-finished
+        timeout: 600
+
+    # python3-debian is for deb822_repository
+    - name: Install Docker, JDK 21 and just
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - docker-buildx
+          - openjdk-21-jdk-headless
+          - just
+          - python3-debian
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    # Vite needs Node 20.19+, Ubuntu has 18
+    - name: Add the NodeSource apt repo
+      ansible.builtin.deb822_repository:
+        name: nodesource
+        types: deb
+        uris: https://deb.nodesource.com/node_22.x
+        suites: nodistro
+        components: main
+        signed_by: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+        state: present
+
+    - name: Install Node 22
+      ansible.builtin.apt:
+        name: nodejs
+        state: present
+        update_cache: true
+
+    # Ubuntu has Maven 3.8.7, we use 3.9
+    - name: Download Maven
+      ansible.builtin.get_url:
+        url: "{{ maven_url }}"
+        dest: /opt/apache-maven-{{ maven_version }}-bin.tar.gz
+        checksum: sha512:{{ maven_url }}.sha512
+        mode: "0644"
+
+    - name: Unpack Maven
+      ansible.builtin.unarchive:
+        src: /opt/apache-maven-{{ maven_version }}-bin.tar.gz
+        dest: /opt
+        remote_src: true
+        creates: /opt/apache-maven-{{ maven_version }}
+
+    - name: Put mvn on the PATH
+      ansible.builtin.file:
+        src: /opt/apache-maven-{{ maven_version }}/bin/mvn
+        dest: /usr/local/bin/mvn
+        state: link
+
+    # plain HTTP is only allowed to localhost by default
+    - name: Let Docker push to the registry over plain HTTP
+      ansible.builtin.copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          { "insecure-registries": ["{{ registry }}"] }
+        mode: "0644"
+      notify: Restart Docker
+
+    - name: Apply the Docker config now
+      ansible.builtin.meta: flush_handlers
+
+    - name: Look for the registry container
+      ansible.builtin.command: docker ps -aq --filter name=^registry$
+      register: registry_container
+      changed_when: false
+
+    - name: Start the registry
+      ansible.builtin.command: >
+        docker run -d --name registry --restart always
+        -p 5000:5000 -v /var/lib/registry:/var/lib/registry
+        registry:2.8.3
+      when: registry_container.stdout == ""
+
+    # data/ is not needed for the build
+    - name: Copy the repository to the build VM
+      ansible.posix.synchronize:
+        src: "{{ repo_src }}/"
+        dest: "{{ repo_dir }}/"
+        delete: true
+        rsync_opts:
+          - --exclude=.git/
+          - --exclude=target/
+          - --exclude=node_modules/
+          - --exclude=infra/secrets/
+          - --exclude=data/
+      become: false
+
+    - name: Build the services and the web app (just build)
+      ansible.builtin.command: just build
+      args:
+        chdir: "{{ repo_dir }}"
+      become: false
+
+    - name: Build the service images
+      ansible.builtin.command: >
+        docker build --build-arg MODULE={{ item.value }}
+        -t {{ registry }}/{{ item.key }}:{{ tag }}
+        -t {{ registry }}/{{ item.key }}:latest
+        {{ repo_dir }}/app
+      loop: "{{ java_images | dict2items }}"
+
+    - name: Build the web image
+      ansible.builtin.command: >
+        docker build
+        -t {{ registry }}/web:{{ tag }}
+        -t {{ registry }}/web:latest
+        {{ repo_dir }}/frontend/web
+
+    - name: Push the images
+      ansible.builtin.command: docker push --all-tags {{ registry }}/{{ item }}
+      loop: "{{ java_images.keys() | list + ['web'] }}"
+
+    - name: Show what was pushed
+      ansible.builtin.debug:
+        msg: "Pushed users, movies, recommendations, ai, edge and web to {{ registry }}, tagged {{ tag }} and latest"
+
+  handlers:
+    - name: Restart Docker
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted

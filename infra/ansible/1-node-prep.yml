@@ -7,6 +7,9 @@
   become: true
   gather_facts: false
 
+  vars:
+    registry: "{{ hostvars[groups['build'][0]].internal_ip }}:5000"
+
   tasks:
     # A fresh VM may still be running cloud-init, which holds the apt lock later on.
     - name: Wait for the VM to accept SSH
@@ -58,6 +61,23 @@
         path: /etc/fstab
         regexp: '^([^#].*\sswap\s.*)$'
         replace: '# \1'
+
+    # The build VM's registry is plain HTTP (config_path is set in 2-k8s-install.yml).
+    - name: Create the containerd config directory for the registry
+      ansible.builtin.file:
+        path: /etc/containerd/certs.d/{{ registry }}
+        state: directory
+        mode: "0755"
+
+    - name: Let containerd pull from the registry over plain HTTP
+      ansible.builtin.copy:
+        dest: /etc/containerd/certs.d/{{ registry }}/hosts.toml
+        content: |
+          server = "http://{{ registry }}"
+
+          [host."http://{{ registry }}"]
+            capabilities = ["pull", "resolve"]
+        mode: "0644"
 
   handlers:
     - name: Apply sysctls

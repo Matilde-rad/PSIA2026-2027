@@ -5,12 +5,17 @@ FROM ubuntu:noble-20260917
 ARG TERRAFORM_VERSION=1.16.5
 ARG KUBECTL_VERSION=v1.37.1
 ARG GCLOUD_VERSION=589.0.0
+ARG ANSIBLE_POSIX_VERSION=2.2.2
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl gnupg unzip openssh-client ansible-core && \
+    apt-get install -y --no-install-recommends ca-certificates curl gnupg unzip openssh-client ansible-core git rsync && \
     rm -rf /var/lib/apt/lists/*
+
+RUN ansible-galaxy collection install ansible.posix==${ANSIBLE_POSIX_VERSION} -p /usr/share/ansible/collections
+
+RUN git config --system safe.directory /g2
 
 RUN curl -fsSL -o /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_$(dpkg --print-architecture).zip" && \
     unzip /tmp/terraform.zip terraform -d /usr/local/bin && \
