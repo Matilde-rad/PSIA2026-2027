@@ -22,9 +22,9 @@ spec:
       labels:
         app: movies
     spec:
-      # the embeddings CSV is only on worker1
+      # the embeddings CSV is only on worker1, labelled by 6-deploy.yml
       nodeSelector:
-        kubernetes.io/hostname: worker1
+        g2-data: "true"
       containers:
         - name: movies
           image: movies

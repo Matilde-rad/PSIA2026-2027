@@ -16,7 +16,7 @@ spec:
         app: web
     spec:
       nodeSelector:
-        kubernetes.io/hostname: worker1
+        g2-data: "true"
       containers:
         - name: web
           image: web

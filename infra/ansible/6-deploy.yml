@@ -23,6 +23,12 @@
         delete: true
       become: false
 
+    # GCP node names are FQDNs (worker1.<zone>.c.<project>.internal).
+    - name: Read the node name
+      ansible.builtin.command: uname -n
+      register: node_name
+      changed_when: false
+
 # Runs in the mgmt container (kubectl + kubeconfig).
 - name: Deploy the app
   hosts: localhost
@@ -38,6 +44,12 @@
     local_path_version: v0.0.37
 
   tasks:
+    # movies and web run on the node with the data (nodeSelector g2-data=true).
+    - name: Label worker1
+      ansible.builtin.command: kubectl label node {{ hostvars['worker1'].node_name.stdout }} g2-data=true --overwrite
+      register: label
+      changed_when: "'not labeled' not in label.stdout"
+
     - name: Install local-path-provisioner
       ansible.builtin.command: >
         kubectl apply -f
@@ -88,9 +100,21 @@
       register: secrets
       changed_when: "'created' in secrets.stdout or 'configured' in secrets.stdout"
 
+    # Registry and tag go into a copy, so the tracked kustomization.yaml never changes.
+    - name: Make a temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: tmp
+
+    - name: Copy deploy/ into it
+      ansible.builtin.copy:
+        src: "{{ repo_src }}/deploy/"
+        dest: "{{ tmp.path }}/"
+        mode: preserve
+
     - name: Point the images at the registry and this commit
       ansible.builtin.replace:
-        path: "{{ repo_src }}/deploy/kustomization.yaml"
+        path: "{{ tmp.path }}/kustomization.yaml"
         regexp: "{{ item.regexp }}"
         replace: "{{ item.replace }}"
       loop:
@@ -98,9 +122,14 @@
         - { regexp: 'newTag: \S+', replace: "newTag: {{ tag }}" }
 
     - name: Apply the manifests
-      ansible.builtin.command: kubectl apply -k {{ repo_src }}/deploy
+      ansible.builtin.command: kubectl apply -k {{ tmp.path }}
       register: apply
       changed_when: "'created' in apply.stdout or 'configured' in apply.stdout"
+
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ tmp.path }}"
+        state: absent
 
     - name: Show where the app is
       ansible.builtin.debug:

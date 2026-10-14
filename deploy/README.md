@@ -17,8 +17,9 @@ Everything lives in the `g2` namespace, one replica each, mirroring `compose.yam
 | `web` | Deployment | `apps/web/web.yaml` | nginx on port 80 of worker1 |
 
 `kustomization.yaml` lists the files, puts them in `g2`, and maps each image name
-(`image: users`) to `<registry>/<name>:<tag>`. `6-deploy.yml` writes the registry and
-the git short SHA there before applying, so the file always says what runs.
+(`image: users`) to `<registry>/<name>:<tag>`. The registry and tag in the file are
+placeholders: `6-deploy.yml` fills in the build VM's registry and the git short SHA
+in a temporary copy and applies that, so the file in git never changes on a deploy.
 
 ## Choices
 

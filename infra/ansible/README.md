@@ -119,13 +119,13 @@ building, or the `<sha>` tag will hold uncommitted changes.
    the `local-path` StorageClass for the database and Ollama volumes. It makes the
    JWT key pair, the database passwords and the internal key once in
    `../secrets/app/`, and stores them as the Secrets `jwt` and `g2` in the `g2`
-   namespace. It writes the registry and the current git short SHA into
-   `../../deploy/kustomization.yaml` and runs `kubectl apply -k deploy`. The manifests
+   namespace. Then it copies `../../deploy` to a temporary directory, writes the
+   registry and the current git short SHA into the copy's `kustomization.yaml`, and
+   runs `kubectl apply -k` on it, so the tracked file never changes. The manifests
    and the choices behind them are in `../../deploy/README.md`.
 
 Step 6 deploys the images of the current commit, so run step 5 first after each new
-commit (or deploy another build with `-e tag=<sha>`). It leaves
-`deploy/kustomization.yaml` modified; commit it, so git shows what runs.
+commit (or deploy another build with `-e tag=<sha>`).
 
 After step 6, `kubectl -n g2 get pods -w` shows the pods starting. The first time,
 `movies` takes several minutes to seed its database. When everything is `Ready`, the
