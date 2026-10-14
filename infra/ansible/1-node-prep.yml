@@ -1,0 +1,64 @@
+---
+# Step 1: prepare every node (master and workers) for Kubernetes.
+# https://kubernetes.io/docs/setup/production-environment/container-runtimes/
+
+- name: Prepare the nodes
+  hosts: cluster
+  become: true
+  gather_facts: false
+
+  tasks:
+    # A fresh VM may still be running cloud-init, which holds the apt lock later on.
+    - name: Wait for the VM to accept SSH
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+
+    - name: Wait for cloud-init to finish
+      ansible.builtin.wait_for:
+        path: /var/lib/cloud/instance/boot-finished
+        timeout: 600
+
+    - name: Gather facts
+      ansible.builtin.setup:
+
+    - name: Load the kernel modules on every boot
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/k8s.conf
+        content: |
+          overlay
+          br_netfilter
+        mode: "0644"
+
+    - name: Load the kernel modules now
+      ansible.builtin.command: modprobe {{ item }}
+      args:
+        creates: /sys/module/{{ item }}
+      loop:
+        - overlay
+        - br_netfilter
+
+    - name: Set the network sysctls
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/k8s.conf
+        content: |
+          net.bridge.bridge-nf-call-iptables = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward = 1
+        mode: "0644"
+      notify: Apply sysctls
+
+    # The kubelet refuses to start with swap on. GCP images have none, so these are
+    # normally no-ops.
+    - name: Turn swap off now
+      ansible.builtin.command: swapoff -a
+      when: ansible_facts.swaptotal_mb > 0
+
+    - name: Keep swap off after a reboot
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\sswap\s.*)$'
+        replace: '# \1'
+
+  handlers:
+    - name: Apply sysctls
+      ansible.builtin.command: sysctl --system

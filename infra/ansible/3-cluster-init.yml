@@ -1,0 +1,53 @@
+---
+# Step 3: create the cluster on the master, add the Calico network and fetch the
+# kubeconfig for kubectl in the mgmt container.
+# https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
+# https://docs.tigera.io/calico/latest/getting-started/kubernetes/requirements
+
+- name: Initialise the control plane
+  hosts: master
+  become: true
+
+  vars:
+    pod_network_cidr: 192.168.0.0/16
+    calico_version: v3.33.0
+
+  tasks:
+    # `creates` makes a rerun skip init instead of wiping the cluster (lab4 ran kubeadm reset).
+    - name: Run kubeadm init
+      ansible.builtin.command: >
+        kubeadm init
+        --pod-network-cidr={{ pod_network_cidr }}
+        --apiserver-advertise-address={{ internal_ip }}
+        --apiserver-cert-extra-sans={{ ansible_host }}
+      args:
+        creates: /etc/kubernetes/admin.conf
+
+    - name: Install the Calico network
+      ansible.builtin.command: >
+        kubectl apply -f
+        https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/calico.yaml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: calico
+      changed_when: "'created' in calico.stdout or 'configured' in calico.stdout"
+
+    # The kubeconfig points at the public IP. tls-server-name makes kubectl check the
+    # certificate for "kubernetes" instead, so after an IP change only
+    # `--tags kubeconfig` has to run again, with no new certificate.
+    - name: Read admin.conf from the master
+      ansible.builtin.slurp:
+        src: /etc/kubernetes/admin.conf
+      register: admin_conf
+      no_log: true
+      tags: kubeconfig
+
+    - name: Save the kubeconfig in infra/secrets
+      ansible.builtin.copy:
+        dest: "{{ playbook_dir }}/../secrets/kubeconfig"
+        content: "{{ admin_conf.content | b64decode | regex_replace('server: https://\\S+', 'server: https://' ~ ansible_host ~ ':6443\n    tls-server-name: kubernetes') }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+      no_log: true
+      tags: kubeconfig

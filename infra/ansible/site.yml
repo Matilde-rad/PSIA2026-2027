@@ -1,0 +1,5 @@
+---
+- ansible.builtin.import_playbook: 1-node-prep.yml
+- ansible.builtin.import_playbook: 2-k8s-install.yml
+- ansible.builtin.import_playbook: 3-cluster-init.yml
+- ansible.builtin.import_playbook: 4-workers-join.yml

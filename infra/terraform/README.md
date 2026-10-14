@@ -76,9 +76,9 @@ terraform output
 ```
 
 The four outputs are maps from VM name to IP: `master_ips`, `worker_ips` and
-`build_ips` hold the public IPs (one map per future Ansible group), `internal_ips`
-holds the internal IPs of all VMs. The Ansible chunk turns `terraform output -json`
-into its inventory.
+`build_ips` hold the public IPs (one map per Ansible group), `internal_ips`
+holds the internal IPs of all VMs. `../ansible/inventory.py` turns
+`terraform output -json` into `inventory.ini`.
 
 Optional check with gcloud:
 
@@ -88,12 +88,17 @@ gcloud config set project your-project-id
 gcloud compute instances list
 ```
 
+## Next step
+
+Install Kubernetes on the VMs: see `../ansible/README.md`.
+
 ## IP addresses
 
 Public IPs are ephemeral and change when a VM is stopped and started. The
 cluster keeps working because the nodes talk over internal IPs, which GCP keeps.
 To get the new public IPs run `terraform apply -refresh-only` and then
-`terraform output`.
+`terraform output`. Then rerun `python3 inventory.py` and refresh the kubeconfig as
+described in `../ansible/README.md`.
 
 ## Clean up
 

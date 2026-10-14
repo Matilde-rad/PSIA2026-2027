@@ -1,0 +1,25 @@
+---
+# Step 4: join the workers to the cluster.
+# https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-join/
+
+- name: Make a join command on the master
+  hosts: master
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Create a join command
+      ansible.builtin.command: kubeadm token create --print-join-command --ttl 1h
+      register: join_command
+      changed_when: false
+
+- name: Join the workers
+  hosts: workers
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Run the join command
+      ansible.builtin.command: "{{ hostvars[groups['master'][0]].join_command.stdout }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
