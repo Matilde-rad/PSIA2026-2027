@@ -35,6 +35,11 @@ admin.conf
 *.iml
 .vscode/
 .DS_Store
+# Eclipse / the Java language server in VS Code and other editors writes these into every module
+.project
+.classpath
+.settings/
+.factorypath
 
 # --- JWT keys ---
 *.pem
