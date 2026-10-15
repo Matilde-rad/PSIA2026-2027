@@ -732,17 +732,17 @@
     {
       "type": "timeseries",
       "title": "5xx per second",
-      "description": "",
+      "description": "Server errors. A flat 0 means none; the Endpoints table shows which endpoint fails.",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (container, uri) (rate(http_server_requests_seconds_count{namespace=\"g2\",container=~\"$service\",status=~\"5..\"}[$__rate_interval]))",
+          "expr": "sum by (container) (rate(http_server_requests_seconds_count{namespace=\"g2\",container=~\"$service\",status=~\"5..\"}[$__rate_interval])) or 0 * sum by (container) (rate(http_server_requests_seconds_count{namespace=\"g2\",container=~\"$service\"}[$__rate_interval]))",
           "refId": "A",
           "range": true,
-          "legendFormat": "{{container}} {{uri}}"
+          "legendFormat": "{{container}}"
         }
       ],
       "fieldConfig": {
@@ -796,10 +796,10 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (container, status) (rate(http_server_requests_seconds_count{namespace=\"g2\",container=~\"$service\",status=~\"4..\"}[$__rate_interval]))",
+          "expr": "sum by (container) (rate(http_server_requests_seconds_count{namespace=\"g2\",container=~\"$service\",status=~\"4..\"}[$__rate_interval])) or 0 * sum by (container) (rate(http_server_requests_seconds_count{namespace=\"g2\",container=~\"$service\"}[$__rate_interval]))",
           "refId": "A",
           "range": true,
-          "legendFormat": "{{container}} {{status}}"
+          "legendFormat": "{{container}}"
         }
       ],
       "fieldConfig": {

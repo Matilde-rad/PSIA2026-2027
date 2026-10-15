@@ -282,10 +282,10 @@ and Ollama for the Search tab), run
 `cd frontend/web && npm install && npm run dev`, then open http://127.0.0.1:5173.
 Details in `frontend/web/README.md`.
 
-`users`, `movies` and `recommendations` expose `/q/health`, `/q/openapi` and
+All five services expose `/q/health` and Prometheus metrics at `/q/metrics`
+(Micrometer, with latency histograms for incoming and outgoing HTTP calls).
+`users`, `movies` and `recommendations` also expose `/q/openapi` and
 `/q/swagger-ui` (the last in dev only).
-`ai` and `edge` carry neither the health nor the OpenAPI extension, so they have
-none of them. `users` also exposes Prometheus metrics at `/q/metrics` (Micrometer).
 
 ## AI and recommendations slice: run locally
 
@@ -450,6 +450,11 @@ Done:
 - The background agent fills that cache from the users' profiles every 10
   minutes, and a profile save that changes the taste refreshes its owner's
   picks at once.
+- Monitoring: Prometheus and Grafana (kube-prometheus-stack) in the `monitoring`
+  namespace, installed by `infra/ansible/7-monitoring.yml`. A PodMonitor scrapes the
+  five services; the *Plain Sight / Services* and *Plain Sight / Load Test*
+  dashboards live in `deploy/monitoring/dashboards/` and are loaded on every deploy.
+  Grafana is at `http://<worker1 public IP>:30300`.
 
 Not started:
 
@@ -458,7 +463,7 @@ Not started:
 - Resilience on the `edge` clients. No retry, timeout or circuit breaker —
   an upstream failure propagates straight to the caller.
 - Terraform + Ansible cluster provisioning, and the app's Kubernetes manifests.
-- Prometheus + Grafana, and the throughput/latency study.
+- The throughput/latency study.
 - GitLab CI + Argo CD.
 
 ## Setup instructions
