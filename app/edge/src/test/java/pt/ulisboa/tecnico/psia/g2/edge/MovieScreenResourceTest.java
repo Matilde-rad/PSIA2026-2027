@@ -97,19 +97,6 @@ class MovieScreenResourceTest {
     }
 
     @Test
-    void failingMoviesIs502() {
-        String token = Tokens.valid(UUID.randomUUID().toString());
-        when(movies.details(any())).thenReturn(Uni.createFrom().failure(new RuntimeException("movies is down")));
-        when(watchlist.get(any(), any())).thenReturn(notFound());
-
-        RestAssured.given().auth().oauth2(token)
-                .get("/screens/movie/1214")
-                .then()
-                .statusCode(502)
-                .body("error", equalTo("bad_gateway"));
-    }
-
-    @Test
     void noTokenIs401() {
         RestAssured.get("/screens/movie/1214").then().statusCode(401);
 

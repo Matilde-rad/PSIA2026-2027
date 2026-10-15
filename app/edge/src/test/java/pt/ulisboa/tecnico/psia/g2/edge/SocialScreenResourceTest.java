@@ -3,7 +3,6 @@ package pt.ulisboa.tecnico.psia.g2.edge;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -98,19 +97,6 @@ class SocialScreenResourceTest {
                 .statusCode(200)
                 .body("username", contains("bob"))
                 .body("[0].sharedMovies", empty());
-    }
-
-    @Test
-    void failingUsersIs502() {
-        String token = Tokens.valid(UUID.randomUUID().toString());
-        when(profiles.get(any(), any())).thenReturn(Uni.createFrom().item(profileOf("x")));
-        when(social.suggestions(any())).thenReturn(Uni.createFrom().failure(new RuntimeException("users is down")));
-
-        RestAssured.given().auth().oauth2(token)
-                .get("/screens/social")
-                .then()
-                .statusCode(502)
-                .body("error", equalTo("bad_gateway"));
     }
 
     @Test

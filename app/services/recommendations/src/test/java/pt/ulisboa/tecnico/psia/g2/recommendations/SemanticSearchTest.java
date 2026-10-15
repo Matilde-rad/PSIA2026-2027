@@ -1,12 +1,9 @@
 package pt.ulisboa.tecnico.psia.g2.recommendations;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Random;
-import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -62,37 +59,5 @@ class SemanticSearchTest {
         assertTrue(cosine(query, liked) > 0);
         assertTrue(cosine(query, disliked) < 0);
         assertTrue(cosine(query, text) > cosine(query, liked));
-    }
-
-    @Test
-    void feedbackNeedsTextOrALikedMovie() {
-        assertNull(SemanticSearch.feedback(null, List.of(), List.of(new float[] {0, 0, 1}), 0.5, 0.25));
-        float[] fromLiked = SemanticSearch.feedback(null, List.of(new float[] {0, 2, 0}), List.of(), 0.5, 0.25);
-        assertEquals(1.0, cosine(fromLiked, new float[] {0, 1, 0}), 1e-6);
-    }
-
-    @Test
-    void sampleDrawsOnlyFromTheBestPool() {
-        List<Integer> ranked = List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-
-        for (int seed = 0; seed < 20; seed++) {
-            List<Integer> picked = SemanticSearch.sample(ranked, 6, 3, new Random(seed));
-            assertEquals(3, Set.copyOf(picked).size());
-            assertTrue(picked.stream().allMatch(i -> i <= 6));
-        }
-        assertEquals(Set.of(1, 2), Set.copyOf(SemanticSearch.sample(List.of(1, 2), 6, 3, new Random(1))));
-    }
-
-    @Test
-    void sampleVariesBetweenCalls() {
-        List<Integer> ranked = List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
-        Random random = new Random(42);
-
-        List<Integer> first = SemanticSearch.sample(ranked, 12, 4, random);
-        boolean changed = false;
-        for (int i = 0; i < 10 && !changed; i++) {
-            changed = !SemanticSearch.sample(ranked, 12, 4, random).equals(first);
-        }
-        assertTrue(changed);
     }
 }

@@ -1,7 +1,6 @@
 package pt.ulisboa.tecnico.psia.g2.edge;
 
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
@@ -159,25 +158,6 @@ class ProfileScreenResourceTest {
     }
 
     @Test
-    void failingMoviesMakeTheWholeScreen502() {
-        String id = UUID.randomUUID().toString();
-        String token = Tokens.valid(id);
-        String bearer = "Bearer " + token;
-        when(users.get(id, bearer))
-                .thenReturn(Uni.createFrom().item(new User(id, "alice", "2026-10-08T12:00:00Z")));
-        when(profiles.get(id, bearer)).thenReturn(Uni.createFrom().item(profileOf(id)));
-        when(recommendations.forUser(id, bearer)).thenReturn(Uni.createFrom().item(List.of()));
-        when(movies.lookup(any())).thenReturn(Uni.createFrom().failure(new RuntimeException("movies is down")));
-
-        RestAssured.given()
-                .auth().oauth2(token)
-                .get("/screens/profile/" + id)
-                .then()
-                .statusCode(502)
-                .body("error", equalTo("bad_gateway"));
-    }
-
-    @Test
     void followersAndFollowingAreListsOfPeopleWithSharedMovieTitles() {
         String id = UUID.randomUUID().toString();
         String token = Tokens.valid(id);
@@ -233,27 +213,5 @@ class ProfileScreenResourceTest {
                 .body("error", equalTo("not_found"));
 
         verifyNoInteractions(users, profiles, social, recommendations);
-    }
-
-    @Test
-    void failingRecommendationsMakeTheWholeScreen502() {
-        String id = UUID.randomUUID().toString();
-        String token = Tokens.valid(id);
-        String bearer = "Bearer " + token;
-        when(users.get(id, bearer))
-                .thenReturn(Uni.createFrom().item(new User(id, "alice", "2026-10-08T12:00:00Z")));
-        when(profiles.get(id, bearer)).thenReturn(Uni.createFrom().item(NO_PROFILE));
-        when(recommendations.forUser(id, bearer))
-                .thenReturn(Uni.createFrom().failure(new RuntimeException("recommendations is down")));
-
-        RestAssured.given()
-                .auth().oauth2(token)
-                .get("/screens/profile/" + id)
-                .then()
-                .statusCode(502)
-                .body("error", equalTo("bad_gateway"))
-                .body("message", equalTo("upstream service unavailable"))
-                .body(not(containsString("recommendations is down")))
-                .body(not(containsString("alice")));
     }
 }

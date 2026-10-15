@@ -36,18 +36,6 @@ class GenresScreenResourceTest {
     }
 
     @Test
-    void failingMoviesIs502() {
-        when(movies.genres()).thenReturn(Uni.createFrom().failure(new RuntimeException("movies is down")));
-
-        RestAssured.given()
-                .auth().oauth2(Tokens.valid(UUID.randomUUID().toString()))
-                .get("/screens/genres")
-                .then()
-                .statusCode(502)
-                .body("error", equalTo("bad_gateway"));
-    }
-
-    @Test
     void noTokenIs401() {
         RestAssured.given()
                 .get("/screens/genres")

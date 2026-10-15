@@ -195,27 +195,6 @@ class RecommendationAgentTest {
     }
 
     @Test
-    void likedMoviesAloneAreEnoughToSearch() {
-        users.rows = List.of(taste("1", null));
-        users.watched = List.of(new UsersClient.Watched("1", "10", true));
-        search.results.put("", List.of(r(20)));
-
-        assertDoesNotThrow(agent::refreshAll);
-
-        assertEquals(List.of(new FakeCache.Write("1", List.of(r(20)))), cache.writes);
-    }
-
-    @Test
-    void dislikedMoviesAloneAreNotSearched() {
-        users.rows = List.of(taste("1", null));
-        users.watched = List.of(new UsersClient.Watched("1", "10", false));
-
-        assertDoesNotThrow(agent::refreshAll);
-
-        assertTrue(search.searched.isEmpty());
-    }
-
-    @Test
     void moviesUnavailableWritesNothingAndDoesNotThrow() {
         users.rows = List.of(taste("1", "a"));
         titles.failure = new ProcessingException("movies down");

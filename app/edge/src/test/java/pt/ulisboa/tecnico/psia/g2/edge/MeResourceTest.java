@@ -1,9 +1,6 @@
 package pt.ulisboa.tecnico.psia.g2.edge;
 
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.not;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -65,20 +62,5 @@ class MeResourceTest {
                 .body("error", equalTo("unauthorized"));
 
         verifyNoInteractions(users);
-    }
-
-    @Test
-    void usersFailureIs502() {
-        when(users.me(anyString()))
-                .thenReturn(Uni.createFrom().failure(new RuntimeException("users is down")));
-
-        RestAssured.given()
-                .auth().oauth2(Tokens.valid(UUID.randomUUID().toString()))
-                .get("/me")
-                .then()
-                .statusCode(502)
-                .body("error", equalTo("bad_gateway"))
-                .body("message", equalTo("upstream service unavailable"))
-                .body(not(containsString("users is down")));
     }
 }

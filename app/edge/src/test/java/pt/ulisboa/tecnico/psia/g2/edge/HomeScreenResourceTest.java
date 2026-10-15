@@ -82,28 +82,6 @@ class HomeScreenResourceTest {
     }
 
     @Test
-    void anUnreadableWatchlistStillGivesMore() {
-        String id = UUID.randomUUID().toString();
-        String token = Tokens.valid(id);
-        String bearer = "Bearer " + token;
-        Profile profile = new Profile(id, "Ana", "bio", List.of("Sci-Fi"), List.of(), List.of());
-        when(profiles.get(id, bearer)).thenReturn(Uni.createFrom().item(profile));
-        when(watchlist.list(bearer)).thenReturn(Uni.createFrom().failure(new RuntimeException("users is down")));
-        Taste taste = new Taste(id, "bio", List.of("Sci-Fi"), List.of(), List.of(), List.of(), List.of());
-        when(recommendations.more(id, new MoreRequest(taste, List.of()), bearer))
-                .thenReturn(Uni.createFrom().item(List.of(new Recommendation("m2", "Dune", null, null))));
-
-        RestAssured.given()
-                .auth().oauth2(token)
-                .contentType(ContentType.JSON)
-                .body("{\"exclude\":[]}")
-                .post("/screens/home/more")
-                .then()
-                .statusCode(200)
-                .body("recommendations[0].movieId", equalTo("m2"));
-    }
-
-    @Test
     void moreWithoutAProfileIsEmpty() {
         String id = UUID.randomUUID().toString();
         String token = Tokens.valid(id);

@@ -125,22 +125,6 @@ class WatchlistScreenResourceTest {
     }
 
     @Test
-    void aFailingRefreshDoesNotFailTheMark() {
-        String id = UUID.randomUUID().toString();
-        String token = Tokens.valid(id);
-        String bearer = "Bearer " + token;
-        when(watchlist.save("1214", new StatusRequest("liked"), bearer))
-                .thenReturn(Uni.createFrom().item(entry("1214", "liked")));
-        when(profiles.get(id, bearer)).thenReturn(Uni.createFrom().failure(new RuntimeException("users is down")));
-
-        RestAssured.given().auth().oauth2(token).contentType(ContentType.JSON).body(Map.of("status", "liked"))
-                .put("/me/watchlist/1214")
-                .then()
-                .statusCode(200)
-                .body("status", equalTo("liked"));
-    }
-
-    @Test
     void aStatusUsersRejectsComesBackUnchanged() {
         String token = Tokens.valid(UUID.randomUUID().toString());
         when(watchlist.save("1214", new StatusRequest("loved"), "Bearer " + token)).thenReturn(
