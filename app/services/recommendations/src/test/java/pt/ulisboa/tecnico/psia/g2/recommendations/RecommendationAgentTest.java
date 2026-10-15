@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -45,8 +47,13 @@ class RecommendationAgentTest {
         final Map<String, List<Recommendation>> results = new HashMap<>();
         final Map<String, RuntimeException> failures = new HashMap<>();
 
+        {
+            pickCount = 12;
+            poolSize = 24;
+        }
+
         @Override
-        public List<Recommendation> recommend(SemanticSearch.Query query) {
+        public List<Recommendation> pool(SemanticSearch.Query query) {
             queries.add(query);
             searched.add(query.text());
             excluded.add(query.exclude());
@@ -78,10 +85,18 @@ class RecommendationAgentTest {
 
         final List<Write> writes = new ArrayList<>();
         final Map<String, List<Recommendation>> stored = new HashMap<>();
+        final Map<String, Stamp> stamps = new HashMap<>();
 
         @Override
-        public void replace(String userId, List<Recommendation> items) {
+        public void replace(String userId, List<Recommendation> items, String fingerprint) {
             writes.add(new Write(userId, items));
+            stored.put(userId, items);
+            stamps.put(userId, new Stamp(fingerprint, Instant.now()));
+        }
+
+        @Override
+        public Stamp stamp(String userId) {
+            return stamps.get(userId);
         }
 
         @Override
@@ -102,6 +117,7 @@ class RecommendationAgentTest {
         agent.cache = cache;
         agent.movieTitles = titles;
         agent.internalKey = "key";
+        agent.maxAge = Duration.ofHours(24);
     }
 
     private static Recommendation r(int id) {
@@ -283,5 +299,58 @@ class RecommendationAgentTest {
 
         assertTrue(search.searched.isEmpty());
         assertTrue(cache.writes.isEmpty());
+    }
+
+    @Test
+    void anUnchangedTasteIsNotSearchedAgainUntilItsPoolIsStale() {
+        users.rows = List.of(taste("1", "a"));
+        search.results.put("a", List.of(r(10)));
+
+        agent.refreshAll();
+        agent.refreshAll();
+
+        assertEquals(List.of("a"), search.searched);
+        assertEquals(1, cache.writes.size());
+
+        cache.stamps.put("1", new RecommendationCache.Stamp(cache.stamps.get("1").fingerprint(),
+                Instant.now().minus(Duration.ofHours(25))));
+        agent.refreshAll();
+
+        assertEquals(List.of("a", "a"), search.searched);
+        assertEquals(2, cache.writes.size());
+    }
+
+    @Test
+    void aChangedTasteIsSearchedAgain() {
+        users.rows = List.of(taste("1", "a"));
+        users.watched = List.of(new UsersClient.Watched("1", "10", true));
+        search.results.put("a", List.of(r(20)));
+        cache.stamps.put("1", new RecommendationCache.Stamp(null, Instant.now()));
+
+        agent.refreshAll();
+        assertEquals(1, search.queries.size());
+
+        users.watched = List.of(new UsersClient.Watched("1", "10", false));
+        agent.refreshAll();
+
+        assertEquals(2, search.queries.size());
+        assertEquals(Set.of("10"), search.queries.get(1).disliked());
+        assertEquals(2, cache.writes.size());
+    }
+
+    @Test
+    void refreshWithAnUnchangedTasteDoesNotSearch() {
+        search.results.put("a", List.of(r(10)));
+        search.results.put("b", List.of(r(20)));
+
+        assertEquals(List.of(r(10)), agent.refresh("1", taste("1", "a")));
+        assertEquals(List.of(r(10)), agent.refresh("1", taste("1", "a")));
+
+        assertEquals(List.of("a"), search.searched);
+        assertEquals(1, cache.writes.size());
+
+        assertEquals(List.of(r(20)), agent.refresh("1", taste("1", "b")));
+
+        assertEquals(List.of("a", "b"), search.searched);
     }
 }

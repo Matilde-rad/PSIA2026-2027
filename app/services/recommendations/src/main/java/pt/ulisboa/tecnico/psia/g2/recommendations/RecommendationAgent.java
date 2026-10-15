@@ -1,5 +1,7 @@
 package pt.ulisboa.tecnico.psia.g2.recommendations;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -36,6 +38,9 @@ public class RecommendationAgent {
     @ConfigProperty(name = "recs.users.internal-key")
     String internalKey;
 
+    @ConfigProperty(name = "recs.agent.max-age")
+    Duration maxAge;
+
     @Scheduled(every = "{recs.agent.every}", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void refreshAll() {
         long start = System.nanoTime();
@@ -53,10 +58,19 @@ public class RecommendationAgent {
             LOG.warnf("agent run skipped movies unavailable error=%s", e.getClass().getSimpleName());
             return;
         }
+        // Users with the same taste get the same pool, so each distinct query is searched once.
+        Map<SemanticSearch.Query, String> fingerprints = new LinkedHashMap<>();
         Map<TasteProfile, SemanticSearch.Query> queries = new LinkedHashMap<>();
+        int unchanged = 0;
         for (TasteProfile profile : all) {
             SemanticSearch.Query query = profile.query(titles);
-            if (!query.isEmpty()) {
+            if (query.isEmpty()) {
+                continue;
+            }
+            String fingerprint = fingerprints.computeIfAbsent(query, SemanticSearch.Query::fingerprint);
+            if (unchanged(profile.userId(), fingerprint)) {
+                unchanged++;
+            } else {
                 queries.put(profile, query);
             }
         }
@@ -69,12 +83,13 @@ public class RecommendationAgent {
             if (results == null) {
                 LOG.warnf("agent user=%s kept cache", userId);
             } else if (!results.isEmpty()) {
-                cache.replace(userId, results);
+                cache.replace(userId, results, fingerprints.get(entry.getValue()));
                 cached++;
             }
         }
-        LOG.infof("agent run users=%d tastes=%d cached=%d kept=%d ms=%d", all.size(), distinct.size(), cached,
-                all.size() - cached, (System.nanoTime() - start) / 1_000_000);
+        LOG.infof("agent run users=%d tastes=%d unchanged=%d cached=%d kept=%d ms=%d", all.size(),
+                distinct.size(), unchanged, cached, all.size() - unchanged - cached,
+                (System.nanoTime() - start) / 1_000_000);
     }
 
     static List<TasteProfile> withWatched(List<TasteProfile> profiles, List<UsersClient.Watched> watched) {
@@ -90,17 +105,29 @@ public class RecommendationAgent {
 
     public List<Recommendation> refresh(String userId, TasteProfile profile) {
         if (profile == null) {
-            return cache.read(userId);
+            return semantic.picks(cache.read(userId));
         }
         SemanticSearch.Query query = query(profile);
         if (query.isEmpty()) {
-            return cache.read(userId);
+            return semantic.picks(cache.read(userId));
         }
-        List<Recommendation> results = semantic.recommend(query);
-        if (!results.isEmpty()) {
-            cache.replace(userId, results);
+        String fingerprint = query.fingerprint();
+        // A save that does not change the taste costs no AI call.
+        if (unchanged(userId, fingerprint)) {
+            return semantic.picks(cache.read(userId));
         }
-        return results;
+        List<Recommendation> pool = semantic.pool(query);
+        if (!pool.isEmpty()) {
+            cache.replace(userId, pool, fingerprint);
+        }
+        return semantic.picks(pool);
+    }
+
+    // A pool cached before fingerprints existed (NULL) never matches.
+    private boolean unchanged(String userId, String fingerprint) {
+        RecommendationCache.Stamp stamp = cache.stamp(userId);
+        return stamp != null && fingerprint.equals(stamp.fingerprint())
+                && stamp.updatedAt().isAfter(Instant.now().minus(maxAge));
     }
 
     public List<Recommendation> more(TasteProfile profile, Collection<String> exclude) {
@@ -123,7 +150,7 @@ public class RecommendationAgent {
         Map<SemanticSearch.Query, List<Recommendation>> found = new LinkedHashMap<>();
         for (SemanticSearch.Query query : queries) {
             try {
-                found.put(query, semantic.recommend(query));
+                found.put(query, semantic.pool(query));
             } catch (RuntimeException e) {
                 LOG.warnf("agent search failed error=%s", e.getClass().getSimpleName());
             }

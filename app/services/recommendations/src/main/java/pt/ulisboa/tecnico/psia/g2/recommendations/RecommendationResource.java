@@ -1,7 +1,5 @@
 package pt.ulisboa.tecnico.psia.g2.recommendations;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -34,9 +32,7 @@ public class RecommendationResource {
     @Path("/users/{userId}")
     @Produces(MediaType.APPLICATION_JSON)
     public List<Recommendation> forUser(@PathParam("userId") String userId) {
-        List<Recommendation> picks = new ArrayList<>(cache.read(userId));
-        Collections.shuffle(picks);
-        return picks;
+        return semantic.picks(cache.read(userId));
     }
 
     @POST

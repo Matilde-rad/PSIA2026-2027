@@ -330,10 +330,14 @@ cd app/services/recommendations && mvn quarkus:dev   # :8083, start last
 > minutes (`recs.agent.every`). Each run reads every profile from `users`
 > (`GET /internal/profiles`), turns each one into a search request ("Horror,
 > Sci-Fi movies. Directed by Ridley Scott. Similar to Alien. ..."), searches once
-> per distinct taste and caches 12 picks per user in `recs_db`. Favorite movies
-> are ids in the profile; the agent gets their titles from `movies` in one lookup
-> and leaves those movies out of the user's picks. Without `users` or `movies` a
-> run logs `agent run skipped ... unavailable` and keeps the cache.
+> per distinct taste and caches each user's best 24 matches
+> (`recs.recommend.pool`) in `recs_db`; Home draws 12 of them at random on every
+> visit. A user whose taste has not changed since their pool was cached is not
+> searched again until the pool is 24 hours old (`recs.agent.max-age`), and the
+> run log counts them as `unchanged`. Favorite movies are ids in the profile;
+> the agent gets their titles from `movies` in one lookup and leaves those
+> movies out of the user's picks. Without `users` or `movies` a run logs
+> `agent run skipped ... unavailable` and keeps the cache.
 
 > On its first start, `movies` downloads MovieLens `ml-32m` (239 MB, 87,585
 > movies, ratings up to October 2023) into the JVM temp dir, never into the
@@ -439,7 +443,8 @@ Done:
   (`POST /recommendations/users/{id}/search`) and serves the cached picks
   (`GET /recommendations/users/{id}`) from `recs_db`.
 - The background agent fills that cache from the users' profiles every 10
-  minutes, and a profile save refreshes its owner's picks at once.
+  minutes, and a profile save that changes the taste refreshes its owner's
+  picks at once.
 
 Not started:
 

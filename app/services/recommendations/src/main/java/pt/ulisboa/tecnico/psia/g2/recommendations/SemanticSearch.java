@@ -1,9 +1,13 @@
 package pt.ulisboa.tecnico.psia.g2.recommendations;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +40,28 @@ public class SemanticSearch {
             Set<String> all = new HashSet<>(exclude);
             all.addAll(more);
             return new Query(text, liked, disliked, Set.copyOf(all));
+        }
+
+        // Not hashCode: 32 bits collide, and a collision would freeze a user's picks.
+        public String fingerprint() {
+            StringBuilder canonical = new StringBuilder();
+            token(canonical, text);
+            for (Set<String> ids : List.of(liked, disliked, exclude)) {
+                token(canonical, String.valueOf(ids.size()));
+                ids.stream().sorted().forEach(id -> token(canonical, id));
+            }
+            try {
+                byte[] digest = MessageDigest.getInstance("SHA-256")
+                        .digest(canonical.toString().getBytes(StandardCharsets.UTF_8));
+                return HexFormat.of().formatHex(digest);
+            } catch (NoSuchAlgorithmException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        // length-prefixed, so no text or id can be mistaken for a separator
+        private static void token(StringBuilder out, String value) {
+            out.append(value.length()).append(':').append(value);
         }
     }
 
@@ -93,21 +119,26 @@ public class SemanticSearch {
         return new SearchResponse(results);
     }
 
-    // For you. The text's vector is moved toward the liked movies and away from the disliked ones
-    // (Rocchio relevance feedback), and the picks are drawn at random from the best matches, so the
-    // same profile does not show the same movies every time.
-    public List<Recommendation> recommend(Query query) {
+    public List<Recommendation> pool(Query query) {
         if (query.isEmpty()) {
             return List.of();
         }
         try {
-            return runRecommend(query);
+            return runPool(query);
         } catch (RuntimeException e) {
             throw new AiUnavailableException(e);
         }
     }
 
-    private List<Recommendation> runRecommend(Query query) {
+    public List<Recommendation> picks(List<Recommendation> pool) {
+        return sample(pool, poolSize, pickCount, random);
+    }
+
+    public List<Recommendation> recommend(Query query) {
+        return picks(pool(query));
+    }
+
+    private List<Recommendation> runPool(Query query) {
         float[] text = query.text().isEmpty() ? null : ai.embedQuery(new AiClient.EmbedQuery(query.text())).embedding();
         Map<String, float[]> vectors = vectors(query);
         float[] vector = feedback(text, of(vectors, query.liked()), of(vectors, query.disliked()), likeWeight,
@@ -116,7 +147,8 @@ public class SemanticSearch {
             return List.of();
         }
         List<MoviesClient.Similar> near = movies.similar(new MoviesClient.SimilarRequest(vector, candidateCount, minRatings));
-        return sample(rank(without(near, query.exclude()), popularityWeight), poolSize, pickCount, random).stream()
+        return rank(without(near, query.exclude()), popularityWeight).stream()
+                .limit(poolSize)
                 .map(s -> new Recommendation(s.id(), s.title(), s.posterUrl(), s.bannerUrl()))
                 .toList();
     }
