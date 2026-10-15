@@ -38,8 +38,6 @@ function Bookmark() {
   )
 }
 
-// The logged-in user's status for one movie: null (not on their list), 'to_watch', 'liked' or
-// 'disliked'. onChange(next) runs after edge confirmed the change; next is null after a removal.
 export default function WatchButtons({ movieId, status, onChange, small }) {
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)

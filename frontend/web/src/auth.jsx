@@ -5,7 +5,6 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(loadSession)
-  // true from a successful registration until the welcome page is done or skipped
   const [isNew, setIsNew] = useState(false)
 
   async function login(username, password) {

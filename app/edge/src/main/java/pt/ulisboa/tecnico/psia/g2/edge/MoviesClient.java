@@ -19,23 +19,19 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 @RegisterRestClient(configKey = "movies")
 public interface MoviesClient {
 
-    // every genre in the catalog, alphabetical
     @GET
     @Path("/genres")
     Uni<List<String>> genres();
 
-    // title autocomplete
     @GET
     @Path("/search")
     Uni<List<CatalogMovie>> search(@QueryParam("q") String q, @QueryParam("limit") int limit);
 
-    // the movies with these ids, in the order asked; unknown ids are left out
     @POST
     @Path("/lookup")
     @Consumes(MediaType.APPLICATION_JSON)
     Uni<List<CatalogMovie>> lookup(LookupRequest request);
 
-    // one movie with its synopsis, running time, cast and directors; 404 when the catalog lacks it
     @GET
     @Path("/{id}")
     Uni<MovieDetails> details(@PathParam("id") String id);

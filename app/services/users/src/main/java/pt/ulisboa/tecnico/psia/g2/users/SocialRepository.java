@@ -14,15 +14,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-// Follows, and the lists of people built on them. Native SQL: the overlap between two profiles
-// is computed on their jsonb lists inside Postgres.
+
 @ApplicationScoped
 public class SocialRepository {
 
     private static final TypeReference<List<String>> STRINGS = new TypeReference<>() {
     };
 
-    // One row per person; :me is the caller. Each list below appends its own joins and filter.
     private static final String PEOPLE = """
             select u.id, u.username, p.display_name,
                    cast(p.favorite_genres as text), cast(p.favorite_directors as text),
@@ -32,13 +30,12 @@ public class SocialRepository {
             left join profiles p on p.user_id = u.id
             """;
 
-    // How many entries of p's list are also in mine, ignoring case.
     private static final String SHARED = """
             (select count(*) from jsonb_array_elements_text(p.%1$s) theirs
               where lower(theirs) in (select lower(mine) from jsonb_array_elements_text(me.%1$s) mine))
             """;
 
-    // A favorite film in common says more about taste than a genre in common, so it counts double.
+
     private static final String SCORE = SHARED.formatted("favorite_genres")
             + " + 2 * " + SHARED.formatted("favorite_movies")
             + " + " + SHARED.formatted("favorite_directors");
@@ -49,8 +46,6 @@ public class SocialRepository {
     @Inject
     ObjectMapper mapper;
 
-    // People the caller does not follow yet whose profile overlaps with theirs, closest first.
-    // Empty when the caller has no profile.
     public List<Person> suggestions(UUID me, int limit) {
         return people(me, PEOPLE + """
                 join profiles me on me.user_id = :me
@@ -63,7 +58,6 @@ public class SocialRepository {
                 """.formatted(SCORE), Map.of("limit", limit));
     }
 
-    // People whose username or display name contains the text, the caller excluded.
     public List<Person> search(UUID me, String text, int limit) {
         String pattern = "%" + text.toLowerCase(Locale.ROOT)
                 .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
@@ -101,7 +95,6 @@ public class SocialRepository {
         return new SocialStats(((Number) row[0]).longValue(), ((Number) row[1]).longValue(), (Boolean) row[2]);
     }
 
-    // following someone twice is not an error
     public void follow(UUID me, UUID target) {
         em.createNativeQuery("""
                 insert into follows (follower_id, followee_id) values (:me, :target)
@@ -129,7 +122,6 @@ public class SocialRepository {
                 shared(row[5], mine == null ? null : mine.favoriteMovies));
     }
 
-    // their entries that are also in mine, ignoring case, written their way
     private List<String> shared(Object theirJson, List<String> mine) {
         if (theirJson == null || mine == null || mine.isEmpty()) {
             return List.of();

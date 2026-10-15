@@ -9,8 +9,6 @@ import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-// The part of a users profile that says what someone likes to watch, plus the movies they marked as
-// watched: liked and disliked. All movie fields hold catalog ids, not titles.
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record TasteProfile(String userId, String bio, List<String> favoriteGenres, List<String> favoriteDirectors,
         List<String> favoriteMovies, List<String> liked, List<String> disliked) {
@@ -23,7 +21,6 @@ public record TasteProfile(String userId, String bio, List<String> favoriteGenre
         disliked = clean(disliked);
     }
 
-    // a profile with nothing marked as watched
     public TasteProfile(String userId, String bio, List<String> favoriteGenres, List<String> favoriteDirectors,
             List<String> favoriteMovies) {
         this(userId, bio, favoriteGenres, favoriteDirectors, favoriteMovies, List.of(), List.of());
@@ -33,10 +30,7 @@ public record TasteProfile(String userId, String bio, List<String> favoriteGenre
         return new TasteProfile(userId, bio, favoriteGenres, favoriteDirectors, favoriteMovies, liked, disliked);
     }
 
-    // The profile as one search request, in the words a person would type into Search.
-    // Empty when the profile says nothing about taste. titles maps movie id to title; a favorite
-    // the catalog does not have is left out. Watched movies are not words: they steer the search
-    // vector instead (see SemanticSearch.recommend), since "not like X" in a text lands next to X.
+    // Watched movies steer the search vector instead of the text: "not like X" in a text lands next to X.
     public String text(Map<String, String> titles) {
         List<String> parts = new ArrayList<>();
         if (!favoriteGenres.isEmpty()) {

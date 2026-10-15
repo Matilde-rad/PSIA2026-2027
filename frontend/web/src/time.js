@@ -1,4 +1,3 @@
-// "5 min ago", "3 h ago", "2 days ago", then the date.
 export function timeAgo(iso) {
   const then = new Date(iso)
   const minutes = Math.floor((Date.now() - then.getTime()) / 60000)

@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.UUID;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
-// What people did with movies lately: added one to their watchlist, liked or disliked one.
 @Path("/activity")
 @Produces(MediaType.APPLICATION_JSON)
 @Authenticated
@@ -30,14 +29,13 @@ public class ActivityResource {
     @Inject
     JsonWebToken jwt;
 
-    // the people the caller follows, newest first
     @GET
     @Path("/feed")
     public List<Activity> feed() {
         return watchlist.feed(UUID.fromString(jwt.getSubject()), FEED);
     }
 
-    // one user, newest first; anyone logged in can read it, like a profile
+    // anyone logged in can read it, like a profile
     @GET
     @Path("/users/{userId}")
     public List<Activity> of(@PathParam("userId") UUID userId) {

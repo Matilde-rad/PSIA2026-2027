@@ -15,7 +15,6 @@ class CatalogSearchWordsTest {
         assertEquals(List.of("2001", "a", "space"), CatalogRepository.words("2001: a space"));
     }
 
-    // nothing typed can change the regular expression the word goes into
     @Test
     void punctuationNeverReachesTheQuery() {
         assertEquals(List.of("a", "b", "c"), CatalogRepository.words("a.*(b)|c\\"));

@@ -12,7 +12,6 @@ import java.sql.Types;
 import java.util.Arrays;
 import java.util.Optional;
 
-// The Cinemeta data already fetched, so a movie page asks Cinemeta only the first time.
 @ApplicationScoped
 public class MovieMetaRepository {
 

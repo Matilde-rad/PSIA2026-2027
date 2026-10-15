@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { apiFetch } from '../api.js'
 
-// Follows or unfollows one user. onChange(nowFollowing) runs after edge confirmed the change.
 export default function FollowButton({ userId, following, onChange, small }) {
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)

@@ -66,7 +66,6 @@ class ProfileResourceTest {
                 .body("fields.field", hasItem("bio"));
     }
 
-    // favorite movies are catalog ids; a title is rejected
     @Test
     void aFavoriteMovieThatIsNotAnIdIs400() {
         Account alice = register();
@@ -149,7 +148,6 @@ class ProfileResourceTest {
                 .get("/internal/profiles")
                 .then()
                 .statusCode(401);
-        // a user token is not the key
         RestAssured.given().auth().oauth2(alice.token())
                 .get("/internal/profiles")
                 .then()

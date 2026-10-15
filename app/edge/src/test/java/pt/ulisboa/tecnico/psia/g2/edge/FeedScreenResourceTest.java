@@ -42,7 +42,7 @@ class FeedScreenResourceTest {
         String token = Tokens.valid(UUID.randomUUID().toString());
         when(activity.feed("Bearer " + token)).thenReturn(Uni.createFrom().item(List.of(
                 activity("bob", "1214", "liked"), activity("carol", "2571", "to_watch"),
-                activity("bob", "404404", "disliked"))));   // not in the catalog: left out
+                activity("bob", "404404", "disliked"))));
         catalogKnowsAlienAndTheMatrix();
 
         RestAssured.given().auth().oauth2(token)

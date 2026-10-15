@@ -64,8 +64,6 @@ public class CatalogRepository {
     @ConfigProperty(name = "movies.images.banner-url")
     String bannerUrl;
 
-    // Vectors already written as pgvector literals ("[0.1,-0.2,...]"), as in the precomputed CSV. One
-    // statement per call, so the whole chunk is one round trip and one commit.
     public void storeVectorLiterals(Map<Integer, String> vectors) {
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(STORE_EMBEDDINGS_SQL)) {
             ps.setArray(1, c.createArrayOf("int4", vectors.keySet().toArray()));
@@ -97,7 +95,6 @@ public class CatalogRepository {
         return count(EMBEDDED_SQL);
     }
 
-    // every genre at least one movie has, in alphabetical order
     public List<String> genres() {
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(GENRES_SQL);
                 ResultSet rs = ps.executeQuery()) {
@@ -111,10 +108,6 @@ public class CatalogRepository {
         }
     }
 
-    // Title autocomplete. Every word typed must start a word of the title, in any order, so
-    // "the matrix" finds "Matrix, The (1999)". Titles that begin with what was typed come first,
-    // then the most rated. A leading article does not count on either side: "the matrix" and
-    // "matrix" both put "Matrix, The (1999)" in that first group.
     public List<MovieSummary> search(String text, int limit) {
         List<String> words = words(text);
         if (words.isEmpty()) {
@@ -154,7 +147,6 @@ public class CatalogRepository {
         return article ? words.subList(1, words.size()) : words;
     }
 
-    // The movies with these ids, in the order asked; ids the catalog does not have are left out.
     public List<MovieSummary> byIds(List<Integer> ids) {
         if (ids.isEmpty()) {
             return List.of();
@@ -169,7 +161,6 @@ public class CatalogRepository {
         }
     }
 
-    // the embeddings of the given movies; a movie that is unknown or not embedded yet is left out
     public List<MovieVector> vectors(List<Integer> ids) {
         if (ids.isEmpty()) {
             return List.of();
@@ -188,7 +179,6 @@ public class CatalogRepository {
         }
     }
 
-    // null when the movie is unknown or MovieLens has no IMDb link for it
     public String imdbId(int id) {
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(IMDB_ID_SQL)) {
             ps.setInt(1, id);
@@ -218,9 +208,8 @@ public class CatalogRepository {
         return rows;
     }
 
-    // The HNSW index returns at most hnsw.ef_search rows (default 40), so it is raised to the limit for
-    // this one transaction. With the rating filter, the iterative scan keeps walking the index until
-    // enough movies pass it instead of returning only the few among the first ef_search.
+    // hnsw.ef_search (default 40) caps the rows the index returns, so it is raised to the limit for this
+    // transaction; the iterative scan then keeps walking until enough movies pass the rating filter.
     public List<SimilarMovie> similar(float[] embedding, int limit, int minRatings) {
         String q = vector(embedding);
         try (Connection c = dataSource.getConnection()) {
@@ -282,7 +271,6 @@ public class CatalogRepository {
         return s.append(']').toString();
     }
 
-    // pgvector's text form, "[0.1,-0.2,...]"
     static float[] parseVector(String text) {
         String[] parts = text.substring(1, text.length() - 1).split(",");
         float[] values = new float[parts.length];

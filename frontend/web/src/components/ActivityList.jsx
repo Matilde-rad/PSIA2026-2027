@@ -10,8 +10,6 @@ const VERBS = {
   disliked: "didn't like",
 }
 
-// Recent activity, newest first. With showUser each line names who did it (the feed); without,
-// the lines are all one person's (a profile).
 export default function ActivityList({ items, showUser }) {
   return (
     <ul className="activity-list">

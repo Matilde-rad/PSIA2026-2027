@@ -1,6 +1,5 @@
 import { useState } from 'react'
 
-// A list of short free-text entries (directors, movie titles). Enter or a comma adds one.
 export default function TagInput({ label, hint, placeholder, values, onChange, max = 10 }) {
   const [text, setText] = useState('')
   const full = values.length >= max

@@ -3,7 +3,6 @@ package pt.ulisboa.tecnico.psia.g2.edge;
 import java.util.List;
 import java.util.Map;
 
-// A Person for the UI: the shared movies are titles here, not ids.
 public record PersonView(String id, String username, String displayName, boolean followedByMe,
         List<String> sharedGenres, List<String> sharedDirectors, List<String> sharedMovies) {
 

@@ -3,8 +3,7 @@ package pt.ulisboa.tecnico.psia.g2.edge;
 import java.util.List;
 import java.util.Objects;
 
-// The browser sends only exclude (ids of the movies it already shows); a profile sent by the
-// browser is ignored. edge fills in the caller's own taste before calling recommendations.
+// A profile sent by the browser is ignored: edge fills in the caller's own taste.
 public record MoreRequest(Taste profile, List<String> exclude) {
 
     public MoreRequest {

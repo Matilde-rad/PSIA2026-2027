@@ -20,8 +20,6 @@ import java.util.List;
 import java.util.UUID;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
-// The caller's own movies: the ones they want to watch and the ones they watched, liked or not.
-// A path that is not a movie id matches nothing, so it is a 404.
 @Path("/watchlist")
 @Produces(MediaType.APPLICATION_JSON)
 @Authenticated
@@ -40,7 +38,6 @@ public class WatchlistResource {
     @Inject
     JsonWebToken jwt;
 
-    // newest first
     @GET
     public List<MovieEntry> list() {
         return watchlist.list(caller());
@@ -52,7 +49,6 @@ public class WatchlistResource {
         return watchlist.find(caller(), movieId).orElseThrow(NotFoundException::new);
     }
 
-    // Adds the movie or changes its status: to_watch, or liked or disliked once watched.
     @PUT
     @Path(MOVIE_ID)
     @Consumes(MediaType.APPLICATION_JSON)
@@ -63,7 +59,6 @@ public class WatchlistResource {
         return watchlist.find(me, movieId).orElseThrow();
     }
 
-    // removing a movie that is not on the list is not an error
     @DELETE
     @Path(MOVIE_ID)
     @Transactional

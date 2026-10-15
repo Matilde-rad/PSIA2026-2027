@@ -4,8 +4,6 @@ import { prettyTitle } from '../titles.js'
 import Avatar from './Avatar.jsx'
 import FollowButton from './FollowButton.jsx'
 
-// One user in a list: who they are, what you have in common, and a follow button.
-// onFollowChange(person, nowFollowing) lets the list update itself.
 export default function PersonCard({ person, onFollowChange, onNavigate }) {
   const { user } = useAuth()
   const name = person.displayName || person.username

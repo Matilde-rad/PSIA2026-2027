@@ -6,8 +6,6 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-// Turns the activity users returns into what the UI shows, with one movie lookup for the whole
-// list. An activity about a movie the catalog does not have is left out.
 @ApplicationScoped
 public class Activities {
 

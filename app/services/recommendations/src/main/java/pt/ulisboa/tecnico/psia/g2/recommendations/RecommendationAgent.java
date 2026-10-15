@@ -53,8 +53,6 @@ public class RecommendationAgent {
             LOG.warnf("agent run skipped movies unavailable error=%s", e.getClass().getSimpleName());
             return;
         }
-        // Users with the same taste get the same picks, so each distinct query is searched once.
-        // A profile that says nothing about taste is not searched at all.
         Map<TasteProfile, SemanticSearch.Query> queries = new LinkedHashMap<>();
         for (TasteProfile profile : all) {
             SemanticSearch.Query query = profile.query(titles);
@@ -79,7 +77,6 @@ public class RecommendationAgent {
                 all.size() - cached, (System.nanoTime() - start) / 1_000_000);
     }
 
-    // each profile with the movies its user marked as watched
     static List<TasteProfile> withWatched(List<TasteProfile> profiles, List<UsersClient.Watched> watched) {
         Map<String, List<UsersClient.Watched>> byUser = watched.stream()
                 .collect(Collectors.groupingBy(UsersClient.Watched::userId));
@@ -91,9 +88,6 @@ public class RecommendationAgent {
         }).toList();
     }
 
-    // One user, right now: called when a profile is saved or a movie is marked, so the picks do not
-    // wait for the next run. Throws SemanticSearch.AiUnavailableException when the AI cannot answer;
-    // the cache is then kept.
     public List<Recommendation> refresh(String userId, TasteProfile profile) {
         if (profile == null) {
             return cache.read(userId);
@@ -109,7 +103,6 @@ public class RecommendationAgent {
         return results;
     }
 
-    // For you's Refresh and Get more. Never cached, so a reload shows the cached set again.
     public List<Recommendation> more(TasteProfile profile, Collection<String> exclude) {
         if (profile == null) {
             return List.of();

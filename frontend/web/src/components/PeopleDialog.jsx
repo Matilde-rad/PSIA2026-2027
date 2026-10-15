@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '../api.js'
 import PersonCard from './PersonCard.jsx'
 
-// A user's followers or the people they follow, in a dialog over the profile page.
-// kind is 'followers' or 'following'. onFollowChange tells the page a follow button was used.
 export default function PeopleDialog({ userId, kind, onClose, onFollowChange }) {
   const [people, setPeople] = useState(null)
   const [error, setError] = useState(false)

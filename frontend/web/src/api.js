@@ -1,4 +1,3 @@
-// Everything that talks to edge, plus the session kept in localStorage.
 export const SESSION_KEY = 'g2.session'
 
 export function loadSession() {

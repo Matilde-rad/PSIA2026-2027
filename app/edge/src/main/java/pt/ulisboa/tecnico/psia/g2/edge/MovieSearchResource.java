@@ -12,7 +12,6 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
-// Title autocomplete for the favorite movies field of the profile form.
 @Path("/screens/movies/search")
 @Produces(MediaType.APPLICATION_JSON)
 @Authenticated

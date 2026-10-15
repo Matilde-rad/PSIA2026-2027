@@ -38,9 +38,6 @@ public class MovieResource {
     @Inject
     Cinemeta cinemeta;
 
-    // One movie with its synopsis, running time, cast, directors and IMDb rating. Those come from
-    // Stremio Cinemeta on the first request and from movies_db afterwards. A movie Cinemeta does
-    // not know, or a failed call, still answers with the catalog data.
     @GET
     @Path("/{id: [0-9]{1,9}}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -74,7 +71,6 @@ public class MovieResource {
         return catalog.similar(request.embedding(), capped, request.minRatings() == null ? 0 : request.minRatings());
     }
 
-    // title autocomplete, e.g. /movies/search?q=par
     @GET
     @Path("/search")
     @Produces(MediaType.APPLICATION_JSON)
@@ -83,7 +79,6 @@ public class MovieResource {
         return catalog.search(q, capped);
     }
 
-    // the movies with the given ids, in the order asked
     @POST
     @Path("/lookup")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -95,8 +90,6 @@ public class MovieResource {
         return catalog.byIds(request.ids().stream().limit(MAX_LOOKUP).map(MovieResource::id).filter(Objects::nonNull).toList());
     }
 
-    // the embeddings of the given movies, for recommendations to steer its search toward liked movies
-    // and away from disliked ones
     @POST
     @Path("/vectors")
     @Consumes(MediaType.APPLICATION_JSON)

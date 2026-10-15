@@ -25,7 +25,7 @@ export default function ProfilePage() {
   const [error, setError] = useState(null)
   const [attempt, setAttempt] = useState(0)
   const [editing, setEditing] = useState(false)
-  const [list, setList] = useState(null) // 'followers' | 'following' | null
+  const [list, setList] = useState(null)
 
   useEffect(() => {
     let ignore = false
@@ -70,8 +70,6 @@ export default function ProfilePage() {
   const profile = screen.profile
   const name = profile?.displayName || screen.username
 
-  // A follow button inside the followers or following dialog changes this page's numbers only
-  // when it is about the page's owner or happens on your own page.
   function handleDialogFollow(person, now) {
     const delta = now ? 1 : -1
     if (own) {
@@ -136,7 +134,6 @@ export default function ProfilePage() {
               initial={profile}
               initialMovies={screen.favoriteMovies}
               submitLabel="Save changes"
-              // reload the screen: the saved profile holds movie ids, the page shows their posters
               onSaved={() => setAttempt(attempt + 1)}
               secondary={
                 <button className="btn btn-ghost" type="button" onClick={() => setEditing(false)}>

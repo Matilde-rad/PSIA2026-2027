@@ -2,7 +2,6 @@ package pt.ulisboa.tecnico.psia.g2.edge;
 
 import java.util.List;
 
-// What recommendations searches from: the caller's profile and the movies they marked as watched.
 public record Taste(String userId, String bio, List<String> favoriteGenres, List<String> favoriteDirectors,
         List<String> favoriteMovies, List<String> liked, List<String> disliked) {
 

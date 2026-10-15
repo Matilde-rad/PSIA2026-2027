@@ -8,7 +8,6 @@ export function hueFor(title) {
   return sum % 360
 }
 
-// Falls back to the placeholder when the image is missing (MetaHub answers 404).
 export function Poster({ title, posterUrl }) {
   const [failed, setFailed] = useState(false)
   const name = prettyTitle(title)
@@ -23,7 +22,6 @@ export function Poster({ title, posterUrl }) {
   )
 }
 
-// The whole card opens the movie's page.
 export default function MovieCard({ movieId, title, year, posterUrl }) {
   return (
     <article className="movie-card">

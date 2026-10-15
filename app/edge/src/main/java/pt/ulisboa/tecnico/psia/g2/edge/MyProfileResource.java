@@ -41,9 +41,8 @@ public class MyProfileResource {
     @ConfigProperty(name = "edge.profile.refresh-timeout")
     Duration refreshTimeout;
 
-    // Saves the caller's profile, then has their recommendations recomputed from it so Home is
-    // ready when they get there. The save is what matters: if the recompute fails or is slow,
-    // the profile is still returned and the background agent catches up on its next run.
+    // The save is what matters: if the recompute fails or is slow, the profile is still returned
+    // and the background agent catches up on its next run.
     @PUT
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<Profile> save(Profile profile, @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {

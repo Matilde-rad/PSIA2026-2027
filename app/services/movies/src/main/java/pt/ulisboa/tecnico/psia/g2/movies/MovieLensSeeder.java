@@ -114,7 +114,7 @@ public class MovieLensSeeder {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(zis, StandardCharsets.UTF_8));
                 if (RATINGS_ENTRY.equals(entry.getName())) {
                     sawRatings = true;
-                    reader.readLine(); // header
+                    reader.readLine();
                     String line;
                     while ((line = reader.readLine()) != null) {
                         if (line.isEmpty()) {
@@ -125,19 +125,19 @@ public class MovieLensSeeder {
                         ratingCounts.merge(Integer.parseInt(f[1]), 1, Integer::sum);
                     }
                 } else if (LINKS_ENTRY.equals(entry.getName())) {
-                    reader.readLine(); // header
+                    reader.readLine();
                     String line;
                     while ((line = reader.readLine()) != null) {
                         if (line.isEmpty()) {
                             continue;
                         }
-                        // links.csv has no quote characters either: movieId,imdbId,tmdbId.
+                        // no quote characters here either
                         String[] f = line.split(",");
                         imdbIds.put(Integer.parseInt(f[0]), "tt" + f[1]);
                     }
                 } else if (MOVIES_ENTRY.equals(entry.getName())) {
                     sawMovies = true;
-                    reader.readLine(); // header
+                    reader.readLine();
                     String line;
                     while ((line = reader.readLine()) != null) {
                         if (!line.isEmpty()) {

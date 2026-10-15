@@ -11,7 +11,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
-// The genres the profile form offers: the ones the movie catalog really has.
 @Path("/screens/genres")
 @Produces(MediaType.APPLICATION_JSON)
 @Authenticated

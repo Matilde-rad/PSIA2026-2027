@@ -54,7 +54,6 @@ class AuthBoundaryTest {
                 .body("id", equalTo(id));
     }
 
-    // signed with the right key, but expired 10 minutes ago
     @Test
     void expiredTokenIs401() {
         Instant now = Instant.now();

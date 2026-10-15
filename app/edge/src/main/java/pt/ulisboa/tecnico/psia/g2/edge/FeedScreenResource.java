@@ -13,7 +13,6 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
-// What the people the caller follows did lately: movies added to a watchlist, liked or disliked.
 @Path("/screens/feed")
 @Produces(MediaType.APPLICATION_JSON)
 @Authenticated

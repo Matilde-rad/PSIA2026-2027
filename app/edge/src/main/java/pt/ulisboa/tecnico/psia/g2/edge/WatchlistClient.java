@@ -16,17 +16,14 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
-// Watchlists live in the users service, hence the shared configKey.
 @Path("/watchlist")
 @Produces(MediaType.APPLICATION_JSON)
 @RegisterRestClient(configKey = "users")
 public interface WatchlistClient {
 
-    // the caller's movies, newest first
     @GET
     Uni<List<MovieEntry>> list(@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization);
 
-    // 404 when the movie is not on the caller's list
     @GET
     @Path("/{movieId}")
     Uni<MovieEntry> get(@PathParam("movieId") String movieId,

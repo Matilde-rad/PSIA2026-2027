@@ -45,7 +45,7 @@ public class UserResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Transactional
     public Response register(@Valid @NotNull RegisterRequest request, @Context UriInfo uriInfo) {
-        String username = request.username().toLowerCase(Locale.ROOT);   // usernames are case-insensitive
+        String username = request.username().toLowerCase(Locale.ROOT);
         String passwordHash = passwordHasher.hash(request.password());
         User user = new User(username, passwordHash);
 

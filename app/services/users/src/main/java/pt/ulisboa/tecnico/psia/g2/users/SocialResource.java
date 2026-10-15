@@ -18,8 +18,6 @@ import java.util.List;
 import java.util.UUID;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
-// Who follows whom, and people to discover. Everything is from the caller's point of view:
-// each Person says whether the caller follows them and what the two profiles share.
 @Path("/social")
 @Produces(MediaType.APPLICATION_JSON)
 @Authenticated
@@ -73,7 +71,6 @@ public class SocialResource {
         return social.following(caller(), existing(userId), LIST_LIMIT);
     }
 
-    // the caller starts following userId
     @PUT
     @Path("/following/{userId}")
     @Transactional

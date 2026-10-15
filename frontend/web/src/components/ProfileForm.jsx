@@ -5,10 +5,6 @@ import TagInput from './TagInput.jsx'
 
 const BIO_MAX = 500
 
-// Creates or replaces the logged-in user's profile. `secondary` is the button next to Save
-// (Skip on the welcome page, Cancel on the profile page). The profile stores favorite movies as
-// catalog ids, so the movies to show for them come separately in `initialMovies`. The welcome
-// page passes askDirectors={false} to keep the first form short.
 export default function ProfileForm({ initial, initialMovies, submitLabel, onSaved, secondary, askDirectors = true }) {
   const [displayName, setDisplayName] = useState(initial?.displayName ?? '')
   const [bio, setBio] = useState(initial?.bio ?? '')
@@ -18,7 +14,6 @@ export default function ProfileForm({ initial, initialMovies, submitLabel, onSav
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
-  // The genres the movie catalog has, from edge. null while loading, 'failed' if that did not work.
   const [catalogGenres, setCatalogGenres] = useState(null)
 
   useEffect(() => {
@@ -35,7 +30,6 @@ export default function ProfileForm({ initial, initialMovies, submitLabel, onSav
     }
   }, [])
 
-  // Genres already on the profile stay visible (and removable) even if the catalog list is missing.
   const loaded = Array.isArray(catalogGenres) ? catalogGenres : []
   const genreOptions = [...loaded, ...genres.filter((g) => !loaded.includes(g))]
 

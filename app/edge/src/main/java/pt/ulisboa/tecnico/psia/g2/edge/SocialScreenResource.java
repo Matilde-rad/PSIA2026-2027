@@ -34,7 +34,6 @@ public class SocialScreenResource {
     @Inject
     JsonWebToken jwt;
 
-    // People with taste like the caller's, whom the caller does not follow yet.
     @GET
     public Uni<SocialView> get(@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
         Uni<Boolean> hasProfile = profiles.get(jwt.getSubject(), authorization)
@@ -44,7 +43,6 @@ public class SocialScreenResource {
         return Uni.combine().all().unis(hasProfile, suggestions).with(SocialView::new);
     }
 
-    // People by username or display name.
     @GET
     @Path("/search")
     public Uni<List<PersonView>> search(@QueryParam("q") String q,

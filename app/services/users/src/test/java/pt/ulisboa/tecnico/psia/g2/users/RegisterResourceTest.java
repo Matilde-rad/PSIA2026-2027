@@ -31,15 +31,14 @@ class RegisterResourceTest {
         String id = post(valid(name.toUpperCase(Locale.ROOT)))
                 .then()
                 .statusCode(201)
-                .header("Location", notNullValue())     // URL of the new user
+                .header("Location", notNullValue())
                 .body("id", notNullValue())
-                .body("username", equalTo(name))        // stored lowercase
+                .body("username", equalTo(name))
                 .body("createdAt", notNullValue())
                 .body("$", not(hasKey("passwordHash")))
                 .extract()
                 .path("id");
 
-        // the new user can be fetched (with a token) and looks the same
         RestAssured.given()
                 .auth().oauth2(loginToken(name))
                 .get("/users/" + id)
@@ -48,7 +47,6 @@ class RegisterResourceTest {
                 .body("username", equalTo(name));
     }
 
-    // each invalid field is named in the 400 response
     @ParameterizedTest(name = "{0}")
     @MethodSource("invalidBodies")
     void invalidInputReturns400NamingField(String label, Map<String, Object> body, String field) {
@@ -79,7 +77,6 @@ class RegisterResourceTest {
                 .body("fields", empty());
     }
 
-    // usernames are case-insensitive, so "ALICE" clashes with "alice"
     @Test
     void duplicateUsernameInAnyCaseReturns409() {
         String name = uniqueUsername();

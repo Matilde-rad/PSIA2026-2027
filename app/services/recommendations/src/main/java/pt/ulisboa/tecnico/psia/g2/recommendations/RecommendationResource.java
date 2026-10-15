@@ -29,7 +29,7 @@ public class RecommendationResource {
     @Inject
     RecommendationAgent agent;
 
-    // The cached picks in a new order on every visit, so Home does not look frozen between agent runs.
+    // A new draw on every visit, so Home does not look frozen between agent runs.
     @GET
     @Path("/users/{userId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -55,7 +55,6 @@ public class RecommendationResource {
         return request == null ? List.of() : agent.more(request.profile(), request.exclude());
     }
 
-    // Recomputes one user's cached picks from their profile. edge calls it after a profile is saved.
     @POST
     @Path("/users/{userId}/refresh")
     @Consumes(MediaType.APPLICATION_JSON)

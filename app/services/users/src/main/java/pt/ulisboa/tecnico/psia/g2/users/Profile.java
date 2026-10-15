@@ -24,7 +24,6 @@ public class Profile extends PanacheEntityBase {
     static final int MAX_FAVORITES = 10;
     static final int MAX_ENTRY_LENGTH = 80;
 
-    // same id as the account in users
     @Id
     @Column(name = "user_id")
     public UUID userId;
@@ -47,7 +46,6 @@ public class Profile extends PanacheEntityBase {
     @Column(name = "favorite_directors", nullable = false)
     public List<@NotBlank @Size(max = MAX_ENTRY_LENGTH) String> favoriteDirectors = new ArrayList<>();
 
-    // ids of movies in the movies service catalog, not titles
     @Size(max = MAX_FAVORITES)
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "favorite_movies", nullable = false)

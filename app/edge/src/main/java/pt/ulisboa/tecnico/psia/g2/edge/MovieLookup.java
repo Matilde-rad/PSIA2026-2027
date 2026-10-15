@@ -11,7 +11,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
-// Profiles and people name movies by catalog id; the UI needs titles and posters.
 @ApplicationScoped
 public class MovieLookup {
 
@@ -19,7 +18,6 @@ public class MovieLookup {
     @RestClient
     MoviesClient movies;
 
-    // id -> movie for the ids the catalog has. No call when there is nothing to look up.
     public Uni<Map<String, Movie>> byId(Collection<String> ids) {
         List<String> distinct = ids.stream().distinct().toList();
         if (distinct.isEmpty()) {
@@ -32,7 +30,6 @@ public class MovieLookup {
         });
     }
 
-    // the movies for these ids, in the same order; ids the catalog does not have are left out
     static List<Movie> inOrder(List<String> ids, Map<String, Movie> byId) {
         return ids.stream().map(byId::get).filter(Objects::nonNull).toList();
     }

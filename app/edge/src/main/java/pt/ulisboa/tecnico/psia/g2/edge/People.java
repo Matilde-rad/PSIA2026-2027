@@ -6,7 +6,6 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-// Turns the people users returns into the ones the UI shows, with one movie lookup for them all.
 @ApplicationScoped
 public class People {
 

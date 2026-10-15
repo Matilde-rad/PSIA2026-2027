@@ -1,4 +1,3 @@
--- One row per user and movie: on the watchlist (to_watch), or watched with a verdict.
 CREATE TABLE user_movies (
     user_id    uuid        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     movie_id   varchar(9)  NOT NULL,

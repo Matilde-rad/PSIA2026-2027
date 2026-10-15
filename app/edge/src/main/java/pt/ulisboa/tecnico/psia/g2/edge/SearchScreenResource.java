@@ -34,7 +34,6 @@ public class SearchScreenResource {
                 .onFailure(SearchScreenResource::aiUnavailable).transform(AiUnavailableException::new);
     }
 
-    // recommendations answers 503 when the model or the catalog could not answer.
     static boolean aiUnavailable(Throwable t) {
         return t instanceof WebApplicationException e && e.getResponse().getStatus() == 503;
     }

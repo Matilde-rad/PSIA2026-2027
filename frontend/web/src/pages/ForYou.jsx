@@ -113,8 +113,6 @@ function Carousel({ items }) {
     return () => clearTimeout(timer)
   }, [index, items.length])
 
-  // running time, rating and synopsis of each movie, loaded once and keyed by movie id;
-  // a banner without them still shows its title
   const [details, setDetails] = useState({})
   useEffect(() => {
     let ignore = false

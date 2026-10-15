@@ -4,8 +4,6 @@ import { prettyTitle } from '../titles.js'
 
 const DEBOUNCE_MS = 200
 
-// Favorite movies, picked from the catalog: typing suggests titles, and only a suggestion can be
-// added. Each value is a movie from edge ({ movieId, title, posterUrl, ... }).
 export default function MovieInput({ label, hint, values, onChange, max = 10 }) {
   const [text, setText] = useState('')
   const [suggestions, setSuggestions] = useState([])

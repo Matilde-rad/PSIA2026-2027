@@ -13,7 +13,6 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
-// One movie: its details from movies and whether the caller has it on their list, from users.
 @Path("/screens/movie")
 @Produces(MediaType.APPLICATION_JSON)
 @Authenticated

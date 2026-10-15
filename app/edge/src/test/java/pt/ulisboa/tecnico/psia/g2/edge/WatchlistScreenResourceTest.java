@@ -49,7 +49,7 @@ class WatchlistScreenResourceTest {
         String token = Tokens.valid(UUID.randomUUID().toString());
         when(watchlist.list("Bearer " + token)).thenReturn(Uni.createFrom().item(List.of(
                 entry("2571", "liked"), entry("1214", "to_watch"), entry("593", "disliked"),
-                entry("404404", "to_watch"))));   // not in the catalog: left out
+                entry("404404", "to_watch"))));
         when(movies.lookup(new MoviesClient.LookupRequest(List.of("2571", "1214", "593", "404404"))))
                 .thenReturn(Uni.createFrom().item(List.of(
                         new MoviesClient.CatalogMovie("2571", "Matrix, The (1999)", 1999, "matrix.jpg", null),

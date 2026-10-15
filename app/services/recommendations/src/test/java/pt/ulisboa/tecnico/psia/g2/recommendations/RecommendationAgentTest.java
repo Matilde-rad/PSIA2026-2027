@@ -108,7 +108,6 @@ class RecommendationAgentTest {
         return new Recommendation(String.valueOf(id), "title-" + id, null, null);
     }
 
-    // a profile whose taste text is exactly its bio
     private static TasteProfile taste(String userId, String bio) {
         return new TasteProfile(userId, bio, List.of(), List.of(), List.of());
     }
@@ -171,7 +170,6 @@ class RecommendationAgentTest {
 
         assertDoesNotThrow(agent::refreshAll);
 
-        // every profile's favorites are resolved in one lookup
         assertEquals(List.of(List.of("1214", "404")), titles.asked);
         assertEquals(List.of(text, "b"), search.searched);
         assertEquals(List.of(Set.of("1214", "404"), Set.of()), search.excluded);
@@ -185,7 +183,6 @@ class RecommendationAgentTest {
 
         assertDoesNotThrow(agent::refreshAll);
 
-        // same text, but user 1's watched movies make it a different search
         assertEquals(2, search.queries.size());
         SemanticSearch.Query first = search.queries.get(0);
         assertEquals(Set.of("10"), first.liked());

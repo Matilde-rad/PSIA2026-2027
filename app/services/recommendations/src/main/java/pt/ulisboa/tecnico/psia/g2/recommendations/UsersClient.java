@@ -15,12 +15,11 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 @RegisterRestClient(configKey = "users")
 public interface UsersClient {
 
-    // Every profile. The agent has no user token; users accepts the shared key instead.
+    // The agent has no user token; users accepts the shared key instead.
     @GET
     @Path("/profiles")
     List<TasteProfile> profiles(@HeaderParam("X-Internal-Key") String internalKey);
 
-    // Every movie every user marked as watched, with whether they liked it.
     @GET
     @Path("/watched")
     List<Watched> watched(@HeaderParam("X-Internal-Key") String internalKey);

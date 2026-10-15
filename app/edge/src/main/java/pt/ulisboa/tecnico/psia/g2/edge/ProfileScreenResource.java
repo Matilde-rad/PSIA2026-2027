@@ -87,7 +87,6 @@ public class ProfileScreenResource {
         return social.following(uuid(id), authorization).chain(people::views);
     }
 
-    // what this user did with movies lately, newest first
     @GET
     @Path("/{id}/activity")
     public Uni<List<ActivityView>> activity(@PathParam("id") String id,
@@ -95,9 +94,8 @@ public class ProfileScreenResource {
         return activity.of(uuid(id), authorization).chain(activities::views);
     }
 
-    // The profile stores movie ids; the screen shows titles and posters. If movies cannot answer
-    // the screen fails rather than showing no favorites: the edit form is filled from this list,
-    // and saving an empty one would erase them.
+    // If movies cannot answer the screen fails rather than showing no favorites: the edit form is
+    // filled from this list, and saving an empty one would erase them.
     private Uni<ProfileView> withFavoriteMovies(Parts parts) {
         List<String> ids = parts.profile() == null ? List.of() : parts.profile().favoriteMovies();
         return movieLookup.byId(ids).map(movies -> new ProfileView(
@@ -106,7 +104,7 @@ public class ProfileScreenResource {
                 parts.stats().followedByMe(), parts.recommendations()));
     }
 
-    // An account without a profile is normal (nothing saved yet), so its 404 is not an error here.
+    // An account without a profile is normal, so its 404 is not an error here.
     private Uni<Profile> profileOrNull(String userId, String authorization) {
         return profiles.get(userId, authorization).onFailure(Upstream::notFound).recoverWithNull();
     }

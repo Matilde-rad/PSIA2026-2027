@@ -60,7 +60,7 @@ class WatchlistResourceTest {
                 .body("status", equalTo("to_watch"))
                 .body("updatedAt", notNullValue());
         mark(alice, second, "to_watch");
-        mark(alice, first, "liked");   // changing a movie makes it the newest
+        mark(alice, first, "liked");
 
         as(alice).get("/watchlist").then()
                 .statusCode(200)

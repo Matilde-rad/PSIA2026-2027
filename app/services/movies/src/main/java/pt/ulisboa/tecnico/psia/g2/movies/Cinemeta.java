@@ -18,7 +18,6 @@ import java.util.regex.Pattern;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-// Stremio's Cinemeta addon: movie metadata by IMDb id, no API key.
 @ApplicationScoped
 public class Cinemeta {
 
@@ -41,8 +40,6 @@ public class Cinemeta {
     @ConfigProperty(name = "movies.meta.timeout")
     Duration timeout;
 
-    // Empty when Cinemeta does not know the film or cannot be reached: the movie page then
-    // shows the catalog data alone.
     public Optional<MovieMeta> fetch(String imdbId) {
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(metaUrl.formatted(imdbId)))
@@ -62,7 +59,6 @@ public class Cinemeta {
         }
     }
 
-    // {"meta": {"description": ..., "runtime": "117 min", "cast": [...], "director": [...], "imdbRating": "8.4"}}
     static Optional<MovieMeta> parse(JsonNode body) {
         JsonNode meta = body == null ? null : body.get("meta");
         if (meta == null || !meta.isObject() || meta.isEmpty()) {

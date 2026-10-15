@@ -12,11 +12,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-// Watchlists and watched movies (user_movies), and the activity lists read from them.
 @ApplicationScoped
 public class WatchlistRepository {
 
-    // One row per user and movie, so an activity is the latest state of that pair.
     private static final String ACTIVITY = """
             select u.id, u.username, p.display_name, m.movie_id, m.status, m.updated_at
             from user_movies m
@@ -46,7 +44,6 @@ public class WatchlistRepository {
         return rows.stream().map(WatchlistRepository::entry).findFirst();
     }
 
-    // adds the movie or changes its status; either way it becomes the user's latest activity
     public void save(UUID me, String movieId, String status) {
         em.createNativeQuery("""
                 insert into user_movies (user_id, movie_id, status) values (:me, :movie, :status)
@@ -60,7 +57,6 @@ public class WatchlistRepository {
                 .setParameter("me", me).setParameter("movie", movieId).executeUpdate();
     }
 
-    // what the people the caller follows did, newest first
     public List<Activity> feed(UUID me, int limit) {
         return activities(ACTIVITY + """
                 join follows f on f.followee_id = m.user_id
@@ -78,7 +74,6 @@ public class WatchlistRepository {
                 """, Map.of("user", user, "limit", limit));
     }
 
-    // every watched movie of every user, with the verdict
     @SuppressWarnings("unchecked")
     public List<WatchedMovie> watched() {
         List<Object[]> rows = em.createNativeQuery("""

@@ -16,7 +16,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
-// Follows and people live in the users service, hence the shared configKey.
 @Path("/social")
 @Produces(MediaType.APPLICATION_JSON)
 @RegisterRestClient(configKey = "users")

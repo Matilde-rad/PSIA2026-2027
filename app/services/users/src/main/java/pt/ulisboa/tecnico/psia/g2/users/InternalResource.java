@@ -13,8 +13,7 @@ import java.security.MessageDigest;
 import java.util.List;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-// For other services, not for edge or the UI. There is no user behind these calls, so instead
-// of a JWT they carry the shared key (users.internal.key).
+
 @Path("/internal")
 @Produces(MediaType.APPLICATION_JSON)
 public class InternalResource {
@@ -27,7 +26,6 @@ public class InternalResource {
     @Inject
     WatchlistRepository watchlist;
 
-    // every profile, for the recommendations agent
     @GET
     @Path("/profiles")
     @PermitAll
@@ -36,7 +34,6 @@ public class InternalResource {
         return Profile.listAll();
     }
 
-    // Every movie every user watched, with whether they liked it, for the recommendations agent.
     @GET
     @Path("/watched")
     @PermitAll

@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth.jsx'
 import ProfileForm from '../components/ProfileForm.jsx'
 
-// First screen after registering: the profile is what the recommendations are made from.
 export default function WelcomePage() {
   const { user, finishOnboarding } = useAuth()
   const navigate = useNavigate()

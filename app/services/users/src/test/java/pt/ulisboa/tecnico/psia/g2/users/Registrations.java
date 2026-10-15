@@ -48,7 +48,6 @@ final class Registrations {
         return login(body);
     }
 
-    // logs in a user registered with valid(...) and returns the bearer token
     static String loginToken(String username) {
         return login(username, "password1")
                 .then()

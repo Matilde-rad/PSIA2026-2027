@@ -67,7 +67,7 @@ class SocialResourceTest {
         Account bob = register();
 
         follow(alice, bob);
-        follow(alice, bob);   // twice is fine and counts once
+        follow(alice, bob);
 
         as(alice).get("/social/" + bob.id() + "/stats").then()
                 .statusCode(200)
@@ -83,7 +83,7 @@ class SocialResourceTest {
                 .statusCode(200)
                 .body("id", contains(alice.id()))
                 .body("username", contains(alice.name()))
-                .body("followedByMe", contains(false));   // bob does not follow alice back
+                .body("followedByMe", contains(false));
         as(alice).get("/social/" + alice.id() + "/following").then()
                 .body("id", contains(bob.id()))
                 .body("followedByMe", contains(true));
@@ -132,7 +132,6 @@ class SocialResourceTest {
 
         as(me).get("/social/suggestions").then()
                 .statusCode(200)
-                // a shared film outweighs a shared genre
                 .body("id", contains(sameMovie.id(), sameGenre.id()))
                 .body("[0].sharedMovies", contains(movie))
                 .body("[0].sharedGenres", empty())
@@ -177,7 +176,6 @@ class SocialResourceTest {
                 .body("id", contains(byDisplay.id()))
                 .body("displayName", contains(display));
         as(me).queryParam("q", me.name()).get("/social/search").then().body("$", empty());
-        // one character is too short, and % is not a wildcard
         as(me).queryParam("q", "u").get("/social/search").then().body("$", empty());
         as(me).queryParam("q", "%%").get("/social/search").then().body("$", empty());
     }

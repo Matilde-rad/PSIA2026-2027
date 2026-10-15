@@ -50,7 +50,6 @@ class ProfileScreenResourceTest {
     @RestClient
     RecommendationsClient recommendations;
 
-    // nobody follows anybody and the catalog knows Alien, unless a test says otherwise
     @BeforeEach
     void defaults() {
         when(social.stats(any(), any())).thenReturn(Uni.createFrom().item(new SocialStats(0, 0, false)));
@@ -95,7 +94,6 @@ class ProfileScreenResourceTest {
                 .body("profile.displayName", equalTo("Alice"))
                 .body("profile.favoriteGenres", contains("Horror"))
                 .body("profile.favoriteMovies", contains("1214", "404"))
-                // ids become movies with posters; 404 is not in the catalog and is left out
                 .body("favoriteMovies.movieId", contains("1214"))
                 .body("favoriteMovies[0].title", equalTo("Alien (1979)"))
                 .body("favoriteMovies[0].posterUrl", equalTo("http://img/poster"))
@@ -154,7 +152,7 @@ class ProfileScreenResourceTest {
                 .body("profile", nullValue())
                 .body("favoriteMovies", empty());
 
-        verifyNoInteractions(movies);   // nothing to look up
+        verifyNoInteractions(movies);
     }
 
     @Test

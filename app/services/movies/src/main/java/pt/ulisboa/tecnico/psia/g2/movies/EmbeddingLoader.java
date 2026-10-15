@@ -17,8 +17,6 @@ import java.util.Map;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-// Loads the precomputed movie vectors (data/embeddings, Git LFS) into movies_db in the background
-// after the seed. Skipped once every movie has a vector (a persistent movies_db).
 @ApplicationScoped
 public class EmbeddingLoader {
 
@@ -45,7 +43,7 @@ public class EmbeddingLoader {
     private void run() {
         try {
             load();
-            // Builds the index after a bulk load, or restores it after a crash in the middle of one; a no-op otherwise.
+            // also restores the index after a crash in the middle of a bulk load
             catalog.createEmbeddingIndex();
             LOG.infof("embeddings ready: %d movies", catalog.embedded());
         } catch (IOException | RuntimeException e) {
@@ -53,8 +51,6 @@ public class EmbeddingLoader {
         }
     }
 
-    // movielens_id,"[v1,...,v1024]" per line: qwen3-embedding:0.6b over
-    // "Title (year). Genres: ... . Tags: up to 15 most frequent MovieLens tags".
     private void load() throws IOException {
         Path path = Path.of(file);
         if (!Files.exists(path)) {
@@ -69,7 +65,7 @@ public class EmbeddingLoader {
         Map<Integer, String> chunk = new LinkedHashMap<>();
         catalog.dropEmbeddingIndex();
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            reader.readLine(); // header
+            reader.readLine();
             String line;
             while ((line = reader.readLine()) != null && !stopped) {
                 int comma = line.indexOf(',');

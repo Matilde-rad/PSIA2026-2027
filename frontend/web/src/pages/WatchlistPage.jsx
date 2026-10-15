@@ -26,7 +26,6 @@ export default function WatchlistPage() {
     }
   }, [attempt])
 
-  // A verdict moves the movie to the top of Watched; a removal takes it off both lists.
   function handleChange(item, status) {
     const without = (list) => list.filter((m) => m.movieId !== item.movieId)
     setScreen({

@@ -39,7 +39,6 @@ public class ProfileResource {
         return profile;
     }
 
-    // Creates the profile on the first save, replaces it afterwards.
     @PUT
     @Path("/{userId}")
     @Transactional

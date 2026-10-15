@@ -25,7 +25,6 @@ public interface MoviesClient {
     @Consumes(MediaType.APPLICATION_JSON)
     List<Movie> lookup(LookupRequest request);
 
-    // the embeddings of the given movies; one that is unknown or not embedded is left out
     @POST
     @Path("/vectors")
     @Consumes(MediaType.APPLICATION_JSON)

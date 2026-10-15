@@ -9,7 +9,6 @@ const DEBOUNCE_MS = 250
 export default function SocialPage() {
   const { user } = useAuth()
   const [text, setText] = useState('')
-  // bumped when a suggestion is followed or unfollowed, so the list above it reloads
   const [followed, setFollowed] = useState(0)
   const query = text.trim()
   const searching = query.length >= 2
@@ -46,7 +45,6 @@ export default function SocialPage() {
   )
 }
 
-// keeps the follow button of one person in a list in step with what was just clicked
 function withFollow(people, person, now) {
   return people.map((p) => (p.id === person.id ? { ...p, followedByMe: now } : p))
 }

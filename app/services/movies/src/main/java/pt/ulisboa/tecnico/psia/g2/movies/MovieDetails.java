@@ -2,8 +2,6 @@ package pt.ulisboa.tecnico.psia.g2.movies;
 
 import java.util.List;
 
-// A catalog movie plus its Cinemeta data. Without that data the description, runtime and rating
-// are null and the lists empty.
 public record MovieDetails(String id, String title, Integer year, List<String> genres, int ratingCount,
         String posterUrl, String bannerUrl, String description, Integer runtimeMinutes, List<String> cast,
         List<String> directors, Double imdbRating) {

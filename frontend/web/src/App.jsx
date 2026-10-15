@@ -18,7 +18,6 @@ function RequireAuth() {
   return user ? <Outlet /> : <Navigate to="/login" replace />
 }
 
-// A user who has just registered goes to the welcome page first, everyone else to Home.
 function PublicOnly() {
   const { user, isNew } = useAuth()
   return user ? <Navigate to={isNew ? '/welcome' : '/'} replace /> : <Outlet />

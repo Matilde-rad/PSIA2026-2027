@@ -25,11 +25,9 @@ public class SemanticSearch {
         }
     }
 
-    // What For you searches from: the profile text, the movies the user liked and disliked, and the
-    // ids never to show (favorites, watched, and on Get more the ones already on screen).
     public record Query(String text, Set<String> liked, Set<String> disliked, Set<String> exclude) {
 
-        // Nothing says what the user likes. Disliked movies alone only say what to avoid.
+        // Disliked movies alone only say what to avoid.
         public boolean isEmpty() {
             return text.isEmpty() && liked.isEmpty();
         }
@@ -76,7 +74,7 @@ public class SemanticSearch {
         return search(text, List.of());
     }
 
-    // excludeIds: movies the user already named as favorites, which would otherwise come back first.
+    // excludeIds: favorites, which would otherwise come back first.
     public SearchResponse search(String text, Collection<String> excludeIds) {
         try {
             return run(text == null ? "" : text, excludeIds);
@@ -137,8 +135,6 @@ public class SemanticSearch {
         return ids.stream().map(vectors::get).filter(v -> v != null).toList();
     }
 
-    // text + likeWeight * mean(liked) - dislikeWeight * mean(disliked), each part a unit vector.
-    // null when there is neither text nor a liked movie to start from.
     static float[] feedback(float[] text, List<float[]> liked, List<float[]> disliked, double likeWeight,
             double dislikeWeight) {
         float[] likedMean = mean(liked);
@@ -161,7 +157,6 @@ public class SemanticSearch {
         return sum;
     }
 
-    // adds weight * v / |v| to target
     private static void add(float[] target, float[] v, double weight) {
         if (v == null) {
             return;
@@ -179,7 +174,6 @@ public class SemanticSearch {
         }
     }
 
-    // count of the best pool, picked at random and in random order
     static <T> List<T> sample(List<T> ranked, int pool, int count, Random random) {
         List<T> best = new ArrayList<>(ranked.subList(0, Math.min(pool, ranked.size())));
         Collections.shuffle(best, random);
@@ -191,8 +185,7 @@ public class SemanticSearch {
         return near.stream().filter(s -> !excluded.contains(s.id())).toList();
     }
 
-    // Similarity decides; popularity (log of the rating count, scaled to the most-rated of these
-    // movies) only tips near-ties toward films people know.
+    // Similarity decides; popularity only tips near-ties toward films people know.
     static List<MoviesClient.Similar> rank(List<MoviesClient.Similar> near, double popularityWeight) {
         double maxPopularity = near.stream().mapToDouble(s -> Math.log1p(s.ratingCount())).max().orElse(0);
         Comparator<MoviesClient.Similar> byScore = Comparator.comparingDouble(s -> s.similarity()

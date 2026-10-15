@@ -8,7 +8,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
-// Account data only. Profile data (bio, favorite genres) lives in Profile.
 @Entity
 @Table(name = "users")
 public class User {
@@ -28,10 +27,7 @@ public class User {
     protected User() {
     }
 
-    // new user
     public User(String username, String passwordHash) {
-        // Postgres timestamptz keeps microseconds. Without truncating, the 201 body (nanoseconds)
-        // and a later GET (rounded to micros) would show different createdAt values.
         this(UUID.randomUUID(), username, passwordHash, Instant.now().truncatedTo(ChronoUnit.MICROS));
     }
 

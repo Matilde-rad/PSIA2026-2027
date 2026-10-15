@@ -28,7 +28,6 @@ public class WatchlistScreenResource {
     @Inject
     MovieLookup movieLookup;
 
-    // users knows the ids, movies the titles and posters: one lookup for the whole list.
     @GET
     public Uni<WatchlistView> get(@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
         return watchlist.list(authorization).chain(entries ->

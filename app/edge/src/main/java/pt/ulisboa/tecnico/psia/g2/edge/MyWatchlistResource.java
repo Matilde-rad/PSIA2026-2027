@@ -18,10 +18,8 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
-// The caller puts a movie on their watchlist, says they watched it and liked it or not, or takes
-// it off. users checks the status; its 400 comes back unchanged. Each change then has the caller's
-// recommendations recomputed in the background, so Home drops a watched movie without waiting for
-// the agent; the answer does not wait for that.
+// Each change has the caller's recommendations recomputed in the background, so Home drops a
+// watched movie without waiting for the agent; the answer does not wait for that.
 @Path("/me/watchlist")
 @Authenticated
 public class MyWatchlistResource {
@@ -42,7 +40,6 @@ public class MyWatchlistResource {
     @Inject
     JsonWebToken jwt;
 
-    // body: {"status": "to_watch" | "liked" | "disliked"}
     @PUT
     @Path("/{movieId}")
     @Consumes(MediaType.APPLICATION_JSON)

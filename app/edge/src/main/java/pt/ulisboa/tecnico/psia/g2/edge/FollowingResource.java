@@ -12,8 +12,6 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
-// The caller follows or unfollows someone. users answers 404 for an unknown or malformed id and
-// 400 for following yourself; both come back unchanged.
 @Path("/me/following")
 @Authenticated
 public class FollowingResource {
