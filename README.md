@@ -194,6 +194,7 @@ in `recommendations`, both from a Secret; there is no default.
 curl http://127.0.0.1:8082/movies/embeddings
 curl http://127.0.0.1:8082/movies/genres          # every genre in the catalog
 curl 'http://127.0.0.1:8082/movies/search?q=par'  # title autocomplete, most rated first
+curl 'http://127.0.0.1:8082/movies/browse?q=matrix&genre=Sci-Fi&offset=0'  # Search tab: title words and genres (all must match), a page at a time
 curl -X POST -H 'Content-Type: application/json' -d '{"ids":["1214","2571"]}' \
   http://127.0.0.1:8082/movies/lookup             # movies by id, with poster URLs
 curl http://127.0.0.1:8082/movies/1214            # one movie: synopsis, runtime, cast, directors, IMDb rating

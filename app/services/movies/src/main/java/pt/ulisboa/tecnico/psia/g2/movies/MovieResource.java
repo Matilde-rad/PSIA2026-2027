@@ -22,6 +22,10 @@ public class MovieResource {
     static final int DEFAULT_SEARCH_LIMIT = 8;
     static final int MAX_SEARCH_LIMIT = 20;
     static final int MAX_LOOKUP = 500;
+    // more than the catalog's 19 genres, so a real request is never cut
+    static final int MAX_BROWSE_GENRES = 20;
+    // Postgres sorts offset + limit rows to skip the offset, so the offset is bounded
+    static final int MAX_BROWSE_OFFSET = 10_000;
 
     public record LookupRequest(List<String> ids) {
     }
@@ -75,8 +79,30 @@ public class MovieResource {
     @Path("/search")
     @Produces(MediaType.APPLICATION_JSON)
     public List<MovieSummary> search(@QueryParam("q") String q, @QueryParam("limit") Integer limit) {
-        int capped = Math.max(1, Math.min(MAX_SEARCH_LIMIT, limit == null ? DEFAULT_SEARCH_LIMIT : limit));
-        return catalog.search(q, capped);
+        return catalog.search(q, limit(limit));
+    }
+
+    @GET
+    @Path("/browse")
+    @Produces(MediaType.APPLICATION_JSON)
+    public List<MovieSummary> browse(@QueryParam("q") String q, @QueryParam("genre") List<String> genres,
+            @QueryParam("offset") Integer offset, @QueryParam("limit") Integer limit) {
+        int skip = offset == null ? 0 : Math.max(0, offset);
+        if (skip > MAX_BROWSE_OFFSET) {
+            return List.of();
+        }
+        List<String> picked = genres == null ? List.of() : genres.stream()
+                .filter(Objects::nonNull)
+                .map(String::strip)
+                .filter(g -> !g.isEmpty())
+                .distinct()
+                .limit(MAX_BROWSE_GENRES)
+                .toList();
+        return catalog.browse(q, picked, skip, limit(limit));
+    }
+
+    private static int limit(Integer limit) {
+        return Math.max(1, Math.min(MAX_SEARCH_LIMIT, limit == null ? DEFAULT_SEARCH_LIMIT : limit));
     }
 
     @POST

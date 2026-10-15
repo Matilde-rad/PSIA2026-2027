@@ -109,22 +109,39 @@ public class CatalogRepository {
     }
 
     public List<MovieSummary> search(String text, int limit) {
+        return browse(text, List.of(), 0, limit);
+    }
+
+    // The order ends with the id, so offset pages never overlap or skip.
+    public List<MovieSummary> browse(String text, List<String> genres, int offset, int limit) {
         List<String> words = words(text);
-        if (words.isEmpty()) {
+        if (words.isEmpty() && genres.isEmpty()) {
             return List.of();
         }
         StringBuilder sql = new StringBuilder(
                 "SELECT id, title, year, genres, rating_count, imdb_id FROM movie WHERE true");
         words.forEach(w -> sql.append(" AND title ~* ?"));
-        sql.append(" ORDER BY (regexp_replace(lower(title), '^(the|an|a) ', '') LIKE ?) DESC,"
-                + " rating_count DESC, id LIMIT ?");
+        if (!genres.isEmpty()) {
+            sql.append(" AND genres @> ?::text[]");
+        }
+        sql.append(" ORDER BY ");
+        if (!words.isEmpty()) {
+            sql.append("(regexp_replace(lower(title), '^(the|an|a) ', '') LIKE ?) DESC, ");
+        }
+        sql.append("rating_count DESC, id LIMIT ? OFFSET ?");
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql.toString())) {
             int i = 1;
             for (String word : words) {
                 ps.setString(i++, "\\m" + word);
             }
-            ps.setString(i++, String.join(" ", withoutLeadingArticle(words)) + "%");
-            ps.setInt(i, limit);
+            if (!genres.isEmpty()) {
+                ps.setArray(i++, c.createArrayOf("text", genres.toArray()));
+            }
+            if (!words.isEmpty()) {
+                ps.setString(i++, String.join(" ", withoutLeadingArticle(words)) + "%");
+            }
+            ps.setInt(i++, limit);
+            ps.setInt(i, offset);
             return summaries(ps);
         } catch (SQLException e) {
             throw new IllegalStateException("Catalog query failed", e);
