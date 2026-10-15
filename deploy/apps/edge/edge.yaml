@@ -35,13 +35,20 @@ spec:
               memory: 512Mi
             limits:
               memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /q/health/started
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 36
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /q/health/ready
               port: 8080
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /q/health/live
               port: 8080
-            initialDelaySeconds: 30
           volumeMounts:
             - name: jwt
               mountPath: /etc/jwt

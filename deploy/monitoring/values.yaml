@@ -1,0 +1,45 @@
+# Settings for the kube-prometheus-stack chart, installed by
+# infra/ansible/7-monitoring.yml. Everything not set here keeps the chart's default:
+# helm show values prometheus-community/kube-prometheus-stack --version <chart_version>
+
+# No alerting yet.
+alertmanager:
+  enabled: false
+
+# kubeadm binds these to 127.0.0.1 on the master, so Prometheus cannot reach them
+# and they would only show up as targets that are down.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    # Pick up every ServiceMonitor and PodMonitor in the cluster, not only the
+    # chart's own, so the app's monitors in the g2 namespace are scraped too.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+# Prometheus itself stays inside the cluster (ClusterIP); Grafana reads it there.
+grafana:
+  # Made by the playbook from infra/secrets/grafana-admin-password.
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  service:
+    type: NodePort
+    nodePort: 30300

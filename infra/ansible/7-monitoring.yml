@@ -1,0 +1,80 @@
+---
+# Step 7: Prometheus and Grafana (kube-prometheus-stack) in the monitoring namespace.
+# https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack
+
+# Runs in the mgmt container (helm, kubectl + kubeconfig).
+- name: Install monitoring
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    repo_src: "{{ playbook_dir | dirname | dirname }}"
+    password_file: "{{ repo_src }}/infra/secrets/grafana-admin-password"
+    chart_version: 91.8.2
+
+  tasks:
+    - name: Make the Grafana admin password (once)
+      ansible.builtin.shell: umask 077 && openssl rand -hex 16 > {{ password_file }}
+      args:
+        creates: "{{ password_file }}"
+
+    - name: Create the namespace
+      ansible.builtin.shell: |
+        set -o pipefail
+        kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+      args:
+        executable: /bin/bash
+      register: namespace
+      changed_when: "'created' in namespace.stdout"
+
+    # create --dry-run | apply = create or update
+    - name: Create or update the Grafana admin Secret
+      ansible.builtin.shell: |
+        set -o pipefail
+        kubectl -n monitoring create secret generic grafana-admin \
+          --from-literal=admin-user=admin \
+          --from-literal=admin-password="$(cat {{ password_file }})" \
+          --dry-run=client -o yaml | kubectl apply -f -
+      args:
+        executable: /bin/bash
+      register: secret
+      changed_when: "'created' in secret.stdout or 'configured' in secret.stdout"
+
+    - name: Add the prometheus-community chart repository
+      ansible.builtin.command: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update
+      changed_when: false
+
+    - name: Install or upgrade kube-prometheus-stack
+      ansible.builtin.command: >
+        helm upgrade --install monitoring prometheus-community/kube-prometheus-stack
+        --namespace monitoring
+        --version {{ chart_version }}
+        --values {{ repo_src }}/deploy/monitoring/values.yaml
+        --wait --timeout 10m
+      changed_when: true
+
+    - name: Scrape the app's services
+      ansible.builtin.command: kubectl apply -f {{ repo_src }}/deploy/monitoring/app-podmonitor.yaml
+      register: podmonitor
+      changed_when: "'created' in podmonitor.stdout or 'configured' in podmonitor.stdout"
+
+    # Grafana's sidecar loads every ConfigMap labelled grafana_dashboard=1.
+    - name: Create or update the dashboards
+      ansible.builtin.shell: |
+        set -o pipefail
+        kubectl -n monitoring create configmap g2-dashboards \
+          --from-file={{ repo_src }}/deploy/monitoring/dashboards/ \
+          --dry-run=client -o yaml \
+          | kubectl label --local -f - grafana_dashboard=1 -o yaml \
+          | kubectl apply --server-side -f -
+      args:
+        executable: /bin/bash
+      register: dashboards
+      changed_when: "'unchanged' not in dashboards.stdout"
+
+    - name: Show where Grafana is
+      ansible.builtin.debug:
+        msg: >-
+          Grafana is at http://{{ hostvars['worker1'].ansible_host }}:30300, user admin,
+          password in infra/secrets/grafana-admin-password

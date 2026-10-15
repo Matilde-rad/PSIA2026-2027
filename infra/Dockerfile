@@ -1,4 +1,4 @@
-# Management container: Terraform, Ansible, gcloud and kubectl.
+# Management container: Terraform, Ansible, gcloud, kubectl and helm.
 
 FROM ubuntu:noble-20260917
 
@@ -6,6 +6,7 @@ ARG TERRAFORM_VERSION=1.16.5
 ARG KUBECTL_VERSION=v1.37.1
 ARG GCLOUD_VERSION=589.0.0
 ARG ANSIBLE_POSIX_VERSION=2.2.2
+ARG HELM_VERSION=v4.3.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -23,6 +24,12 @@ RUN curl -fsSL -o /tmp/terraform.zip "https://releases.hashicorp.com/terraform/$
 
 RUN curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/$(dpkg --print-architecture)/kubectl" && \
     chmod 0755 /usr/local/bin/kubectl
+
+RUN arch=$(dpkg --print-architecture) && \
+    curl -fsSL -o /tmp/helm.tar.gz "https://get.helm.sh/helm-${HELM_VERSION}-linux-${arch}.tar.gz" && \
+    echo "$(curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-${arch}.tar.gz.sha256sum" | cut -d' ' -f1)  /tmp/helm.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/helm.tar.gz -C /usr/local/bin --strip-components=1 "linux-${arch}/helm" && \
+    rm /tmp/helm.tar.gz
 
 RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
     echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-sdk.list && \

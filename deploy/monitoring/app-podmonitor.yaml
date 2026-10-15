@@ -1,0 +1,18 @@
+# Prometheus scrapes /q/metrics (Micrometer) on the five Quarkus services.
+# Applied by infra/ansible/7-monitoring.yml after the chart, which installs the
+# PodMonitor CRD. Selects the pods by their app label, so the Services stay as they are.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: g2-services
+  namespace: g2
+spec:
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [edge, users, movies, recommendations, ai]
+  podMetricsEndpoints:
+    - portNumber: 8080
+      path: /q/metrics
+      interval: 15s
