@@ -54,10 +54,11 @@ public class SocialRepository {
     public List<Person> suggestions(UUID me, int limit) {
         return people(me, PEOPLE + """
                 join profiles me on me.user_id = :me
+                cross join lateral (select %s as score) s
                 where u.id <> :me
                   and not exists (select 1 from follows f where f.follower_id = :me and f.followee_id = u.id)
-                  and (%1$s) > 0
-                order by (%1$s) desc, u.username
+                  and s.score > 0
+                order by s.score desc, u.username
                 limit :limit
                 """.formatted(SCORE), Map.of("limit", limit));
     }
