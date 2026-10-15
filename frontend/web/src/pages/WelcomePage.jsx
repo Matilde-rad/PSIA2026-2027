@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth.jsx'
+import Logo from '../components/Logo.jsx'
 import ProfileForm from '../components/ProfileForm.jsx'
 
 export default function WelcomePage() {
@@ -15,6 +16,7 @@ export default function WelcomePage() {
     <div className="auth-page">
       <div className="auth-card auth-card-wide">
         <span className="wordmark">
+          <Logo />
           Plain<span>Sight</span>
         </span>
         <h1 className="auth-title">Welcome, {user.username}</h1>

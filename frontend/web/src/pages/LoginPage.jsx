@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { fieldMessages } from '../api.js'
 import { useAuth } from '../auth.jsx'
+import Logo from '../components/Logo.jsx'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -38,6 +39,7 @@ export default function LoginPage() {
     <div className="auth-page">
       <div className="auth-card">
         <span className="wordmark">
+          <Logo />
           Plain<span>Sight</span>
         </span>
         <h1 className="auth-title">Welcome back</h1>

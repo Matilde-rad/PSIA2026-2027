@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { fieldMessages } from '../api.js'
 import { useAuth } from '../auth.jsx'
+import Logo from '../components/Logo.jsx'
 
 function validate(username, password) {
   const errors = {}
@@ -59,6 +60,7 @@ export default function RegisterPage() {
     <div className="auth-page">
       <div className="auth-card">
         <span className="wordmark">
+          <Logo />
           Plain<span>Sight</span>
         </span>
         <h1 className="auth-title">Create your account</h1>

@@ -60,6 +60,8 @@ img {
 }
 
 .wordmark {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 22px;
@@ -69,6 +71,11 @@ img {
 
 .wordmark span {
   color: var(--accent);
+}
+
+/* Space after the tree only: a flex gap would also split "Plain" from "Sight". */
+.wordmark .logo {
+  margin-right: 8px;
 }
 
 .nav {

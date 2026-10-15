@@ -3,6 +3,7 @@ import { Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'rea
 import { apiFetch } from './api.js'
 import { useAuth } from './auth.jsx'
 import Avatar from './components/Avatar.jsx'
+import Logo from './components/Logo.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import HomePage from './pages/HomePage.jsx'
@@ -41,6 +42,7 @@ function Layout() {
       <header className="nav">
         <div className="nav-inner">
           <Link className="wordmark" to="/">
+            <Logo />
             Plain<span>Sight</span>
           </Link>
           <nav className="nav-tabs">
