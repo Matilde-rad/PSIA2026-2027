@@ -57,48 +57,30 @@ export default function WatchButtons({ movieId, status, onChange, small }) {
     }
   }
 
-  const size = small ? ' btn-sm' : ''
-  const verdict = (value, label) => (
-    <button
-      type="button"
-      className={status === value ? 'segment segment-selected' : 'segment'}
-      aria-pressed={status === value}
-      disabled={busy}
-      // pressing the current verdict again changes nothing
-      onClick={() => status !== value && change(value)}
-    >
-      <Thumb down={value === 'disliked'} />
-      {label}
-    </button>
-  )
+  const choice = (value, icon, label) => {
+    const selected = status === value
+    return (
+      <button
+        type="button"
+        className={`segment segment-${value}` + (selected ? ' segment-selected' : '')}
+        aria-pressed={selected}
+        title={selected ? 'Remove from your list' : undefined}
+        disabled={busy}
+        onClick={() => change(selected ? null : value)}
+      >
+        {icon}
+        {label}
+      </button>
+    )
+  }
 
   return (
     <div className="watch-buttons">
-      {status ? (
-        <>
-          <div className={small ? 'segmented segmented-sm' : 'segmented'} role="group" aria-label="Your verdict">
-            {verdict('liked', 'Liked')}
-            {verdict('disliked', "Didn't like")}
-          </div>
-          <button
-            type="button"
-            className={'btn btn-ghost btn-icon' + size}
-            disabled={busy}
-            aria-label="Remove from watchlist"
-            title="Remove from watchlist"
-            onClick={() => change(null)}
-          >
-            ✕
-          </button>
-        </>
-      ) : (
-        <div className={small ? 'segmented segmented-sm' : 'segmented'}>
-          <button type="button" className="segment segment-add" disabled={busy} onClick={() => change('to_watch')}>
-            <Bookmark />
-            Add to watchlist
-          </button>
-        </div>
-      )}
+      <div className={small ? 'segmented segmented-sm' : 'segmented'} role="group" aria-label="Your list">
+        {choice('to_watch', <Bookmark />, 'Add to watchlist')}
+        {choice('liked', <Thumb />, 'Liked')}
+        {choice('disliked', <Thumb down />, "Didn't like")}
+      </div>
       {failed && (
         <span className="field-error" role="alert">
           That did not work, try again.
