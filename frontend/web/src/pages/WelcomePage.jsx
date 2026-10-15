@@ -17,7 +17,7 @@ export default function WelcomePage() {
       <div className="auth-card auth-card-wide">
         <span className="wordmark">
           <Logo />
-          Plain<span>Sight</span>
+          <span>Plain</span>Sight
         </span>
         <h1 className="auth-title">Welcome, {user.username}</h1>
         <p className="auth-subtitle">

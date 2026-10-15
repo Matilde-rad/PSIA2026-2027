@@ -43,7 +43,7 @@ function Layout() {
         <div className="nav-inner">
           <Link className="wordmark" to="/">
             <Logo />
-            Plain<span>Sight</span>
+            <span>Plain</span>Sight
           </Link>
           <nav className="nav-tabs">
             <NavLink className="nav-tab" to="/" end>Home</NavLink>
