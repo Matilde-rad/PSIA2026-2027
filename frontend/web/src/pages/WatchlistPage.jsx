@@ -28,9 +28,10 @@ export default function WatchlistPage() {
 
   function handleChange(item, status) {
     const without = (list) => list.filter((m) => m.movieId !== item.movieId)
+    const moved = { ...item, status }
     setScreen({
-      toWatch: without(screen.toWatch),
-      watched: status ? [{ ...item, status }, ...without(screen.watched)] : without(screen.watched),
+      toWatch: status === 'to_watch' ? [moved, ...without(screen.toWatch)] : without(screen.toWatch),
+      watched: status && status !== 'to_watch' ? [moved, ...without(screen.watched)] : without(screen.watched),
     })
   }
 
