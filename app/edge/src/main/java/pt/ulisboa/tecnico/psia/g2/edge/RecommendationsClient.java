@@ -36,10 +36,10 @@ public interface RecommendationsClient {
     Uni<List<Recommendation>> more(@PathParam("userId") String userId, MoreRequest request,
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization);
 
-    // recomputes and caches the user's picks from their profile
+    // recomputes and caches the user's picks from their profile and watched movies
     @POST
     @Path("/users/{userId}/refresh")
     @Consumes(MediaType.APPLICATION_JSON)
-    Uni<List<Recommendation>> refresh(@PathParam("userId") String userId, Profile profile,
+    Uni<List<Recommendation>> refresh(@PathParam("userId") String userId, Taste taste,
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization);
 }

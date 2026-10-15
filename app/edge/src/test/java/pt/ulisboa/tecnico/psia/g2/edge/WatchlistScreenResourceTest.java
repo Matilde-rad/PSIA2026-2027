@@ -3,6 +3,7 @@ package pt.ulisboa.tecnico.psia.g2.edge;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -30,6 +31,14 @@ class WatchlistScreenResourceTest {
     @InjectMock
     @RestClient
     MoviesClient movies;
+
+    @InjectMock
+    @RestClient
+    ProfilesClient profiles;
+
+    @InjectMock
+    @RestClient
+    RecommendationsClient recommendations;
 
     private static MovieEntry entry(String movieId, String status) {
         return new MovieEntry(movieId, status, "2026-10-12T10:00:00Z");
@@ -92,6 +101,43 @@ class WatchlistScreenResourceTest {
         RestAssured.given().auth().oauth2(token).delete("/me/watchlist/1214").then().statusCode(204);
 
         verify(watchlist).remove("1214", bearer);
+    }
+
+    @Test
+    void markingAMovieRefreshesTheCallersRecommendationsInTheBackground() {
+        String id = UUID.randomUUID().toString();
+        String token = Tokens.valid(id);
+        String bearer = "Bearer " + token;
+        when(watchlist.save("1214", new StatusRequest("disliked"), bearer))
+                .thenReturn(Uni.createFrom().item(entry("1214", "disliked")));
+        when(profiles.get(id, bearer)).thenReturn(Uni.createFrom().item(
+                new Profile(id, "Ana", "bio", List.of("Horror"), List.of(), List.of())));
+        when(watchlist.list(bearer)).thenReturn(Uni.createFrom().item(List.of(entry("1214", "disliked"))));
+        Taste taste = new Taste(id, "bio", List.of("Horror"), List.of(), List.of(), List.of(), List.of("1214"));
+        when(recommendations.refresh(id, taste, bearer)).thenReturn(Uni.createFrom().item(List.of()));
+
+        RestAssured.given().auth().oauth2(token).contentType(ContentType.JSON).body(Map.of("status", "disliked"))
+                .put("/me/watchlist/1214")
+                .then()
+                .statusCode(200);
+
+        verify(recommendations, timeout(5000)).refresh(id, taste, bearer);
+    }
+
+    @Test
+    void aFailingRefreshDoesNotFailTheMark() {
+        String id = UUID.randomUUID().toString();
+        String token = Tokens.valid(id);
+        String bearer = "Bearer " + token;
+        when(watchlist.save("1214", new StatusRequest("liked"), bearer))
+                .thenReturn(Uni.createFrom().item(entry("1214", "liked")));
+        when(profiles.get(id, bearer)).thenReturn(Uni.createFrom().failure(new RuntimeException("users is down")));
+
+        RestAssured.given().auth().oauth2(token).contentType(ContentType.JSON).body(Map.of("status", "liked"))
+                .put("/me/watchlist/1214")
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("liked"));
     }
 
     @Test

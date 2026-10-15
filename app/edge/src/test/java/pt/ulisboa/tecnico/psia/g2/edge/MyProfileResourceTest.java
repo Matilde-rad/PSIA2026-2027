@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.UUID;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.resteasy.reactive.ClientWebApplicationException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -32,6 +33,15 @@ class MyProfileResourceTest {
     @InjectMock
     @RestClient
     RecommendationsClient recommendations;
+
+    @InjectMock
+    @RestClient
+    WatchlistClient watchlist;
+
+    @BeforeEach
+    void emptyWatchlist() {
+        when(watchlist.list(any())).thenReturn(Uni.createFrom().item(List.of()));
+    }
 
     private static Profile saved(String id) {
         return new Profile(id, "Alice", null, List.of("Horror"), List.of(), List.of());
@@ -48,7 +58,9 @@ class MyProfileResourceTest {
         String token = Tokens.valid(id);
         String bearer = "Bearer " + token;
         when(profiles.save(eq(id), any(), eq(bearer))).thenReturn(Uni.createFrom().item(saved(id)));
-        when(recommendations.refresh(id, saved(id), bearer)).thenReturn(Uni.createFrom().item(List.of()));
+        when(watchlist.list(bearer)).thenReturn(Uni.createFrom().item(List.of(new MovieEntry("5", "liked", null))));
+        Taste taste = new Taste(id, null, List.of("Horror"), List.of(), List.of(), List.of("5"), List.of());
+        when(recommendations.refresh(id, taste, bearer)).thenReturn(Uni.createFrom().item(List.of()));
 
         put(token).then()
                 .statusCode(200)
@@ -56,7 +68,7 @@ class MyProfileResourceTest {
                 .body("userId", equalTo(id))
                 .body("favoriteGenres", contains("Horror"));
 
-        verify(recommendations).refresh(id, saved(id), bearer);
+        verify(recommendations).refresh(id, taste, bearer);
     }
 
     @Test

@@ -26,8 +26,7 @@ public class HomeScreenResource {
     RecommendationsClient recommendations;
 
     @Inject
-    @RestClient
-    ProfilesClient profiles;
+    Tastes tastes;
 
     @Inject
     JsonWebToken jwt;
@@ -44,10 +43,10 @@ public class HomeScreenResource {
     public Uni<HomeView> more(MoreRequest request, @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
         String userId = jwt.getSubject();
         List<String> exclude = request == null ? List.of() : request.exclude();
-        return profiles.get(userId, authorization).onFailure(Upstream::notFound).recoverWithNull()
-                .flatMap(profile -> profile == null
+        return tastes.of(userId, authorization)
+                .flatMap(taste -> taste == null
                         ? Uni.createFrom().item(new HomeView(List.of()))
-                        : recommendations.more(userId, new MoreRequest(profile, exclude), authorization)
+                        : recommendations.more(userId, new MoreRequest(taste, exclude), authorization)
                                 .onFailure(SearchScreenResource::aiUnavailable).transform(AiUnavailableException::new)
                                 .map(HomeView::new));
     }

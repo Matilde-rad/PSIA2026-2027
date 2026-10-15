@@ -33,6 +33,9 @@ public class MyProfileResource {
     RecommendationsClient recommendations;
 
     @Inject
+    Tastes tastes;
+
+    @Inject
     JsonWebToken jwt;
 
     @ConfigProperty(name = "edge.profile.refresh-timeout")
@@ -46,7 +49,8 @@ public class MyProfileResource {
     public Uni<Profile> save(Profile profile, @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
         String userId = jwt.getSubject();
         return profiles.save(userId, profile, authorization)
-                .call(saved -> recommendations.refresh(userId, saved, authorization)
+                .call(saved -> tastes.of(saved, authorization)
+                        .flatMap(taste -> recommendations.refresh(userId, taste, authorization))
                         .ifNoItem().after(refreshTimeout).fail()
                         .onFailure().recoverWithItem(t -> {
                             LOG.warnf("recommendations not refreshed after profile save error=%s",
