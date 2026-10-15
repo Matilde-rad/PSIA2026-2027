@@ -3,7 +3,6 @@ package pt.ulisboa.tecnico.psia.g2.users;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.not;
 import static pt.ulisboa.tecnico.psia.g2.users.Registrations.loginToken;
 import static pt.ulisboa.tecnico.psia.g2.users.Registrations.post;
 import static pt.ulisboa.tecnico.psia.g2.users.Registrations.uniqueUsername;
@@ -16,6 +15,7 @@ import io.restassured.response.Response;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -213,37 +213,9 @@ class ProfileResourceTest {
                 .statusCode(403);
     }
 
-    // genres and directors are random per test, so other tests' profiles never match
-    @Test
-    void listFiltersByGenreAndDirectorIgnoringCase() {
-        Account alice = register();
-        Account bob = register();
-        String genre = "Genre" + uniqueUsername();
-        String director = "Director" + uniqueUsername();
-        create(alice, profile(genre, director)).then().statusCode(201);
-        create(bob, profile(genre, "Someone Else")).then().statusCode(201);
-
-        RestAssured.given().auth().oauth2(bob.token())
-                .queryParam("genre", genre.toUpperCase())
-                .get("/profiles")
-                .then()
-                .statusCode(200)
-                .body("userId", hasItem(alice.id()))
-                .body("userId", hasItem(bob.id()));
-
-        RestAssured.given().auth().oauth2(bob.token())
-                .queryParam("genre", genre)
-                .queryParam("director", director.toLowerCase())
-                .get("/profiles")
-                .then()
-                .statusCode(200)
-                .body("userId", hasItem(alice.id()))
-                .body("userId", not(hasItem(bob.id())));
-    }
-
     @Test
     void noTokenIs401() {
-        RestAssured.get("/profiles")
+        RestAssured.get("/profiles/" + UUID.randomUUID())
                 .then()
                 .statusCode(401)
                 .body("error", equalTo("unauthorized"));

@@ -1,7 +1,5 @@
 package pt.ulisboa.tecnico.psia.g2.edge;
 
-import java.util.List;
-
 import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -10,7 +8,6 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
@@ -20,10 +17,6 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 @Produces(MediaType.APPLICATION_JSON)
 @RegisterRestClient(configKey = "users")
 public interface ProfilesClient {
-
-    @GET
-    Uni<List<Profile>> list(@QueryParam("genre") String genre, @QueryParam("director") String director,
-            @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization);
 
     // 404 when the user has not set up a profile yet
     @GET

@@ -2,7 +2,6 @@ package pt.ulisboa.tecnico.psia.g2.users;
 
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
-import jakarta.persistence.Query;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -16,19 +15,15 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
-// Anyone logged in can read profiles; only the owner can create, change or delete theirs.
 @Path("/profiles")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -37,31 +32,6 @@ public class ProfileResource {
 
     @Inject
     JsonWebToken jwt;
-
-    // Browse other users' profiles. Case-insensitive substring match against the
-    // JSON arrays, done in Postgres.
-    @GET
-    @SuppressWarnings("unchecked")
-    public List<Profile> list(@QueryParam("genre") String genre, @QueryParam("director") String director) {
-        StringBuilder sql = new StringBuilder("select p.* from profiles p where true");
-        Map<String, String> params = new HashMap<>();
-        if (genre != null && !genre.isBlank()) {
-            sql.append(matches("favorite_genres", "genre"));
-            params.put("genre", genre);
-        }
-        if (director != null && !director.isBlank()) {
-            sql.append(matches("favorite_directors", "director"));
-            params.put("director", director);
-        }
-        Query query = Profile.getEntityManager().createNativeQuery(sql.toString(), Profile.class);
-        params.forEach(query::setParameter);
-        return query.getResultList();
-    }
-
-    private static String matches(String column, String param) {
-        return " and exists (select 1 from jsonb_array_elements_text(p." + column + ") e"
-                + " where position(lower(:" + param + ") in lower(e)) > 0)";
-    }
 
     @GET
     @Path("/{userId}")

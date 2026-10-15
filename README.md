@@ -140,12 +140,10 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/jso
   -d '{"displayName":"Alice","bio":"likes films","favoriteGenres":["Horror"],"favoriteDirectors":["Ridley Scott"],"favoriteMovies":["1214"]}' \
   http://127.0.0.1:8081/profiles                                             # the caller's own profile
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/profiles/$ID   # ID = user.id from login
-curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8081/profiles?genre=horror&director=scott'
 ```
 
 `PUT /profiles/{id}` creates the profile on the first save and replaces it
-afterwards; `DELETE /profiles/{id}` removes it. The `genre` and `director`
-filters are case-insensitive substring matches, done in Postgres.
+afterwards; `DELETE /profiles/{id}` removes it.
 `favoriteMovies` holds ids of the `movies` catalog (1214 is Alien), not titles;
 a profile takes at most 10 movies, 10 directors and 30 genres.
 
@@ -221,7 +219,6 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/me
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID
 curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"text":"a horror movie from the 80s"}' http://127.0.0.1:8080/screens/search
-curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8080/screens/discover?genre=horror'
 curl -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"displayName":"Alice","favoriteGenres":["Horror"],"favoriteMovies":["1214"]}' \
   http://127.0.0.1:8080/me/profile
@@ -272,8 +269,6 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID
   titles and posters from one `movies` lookup. `/screens/feed` (people the caller
   follows) and `/screens/profile/ID/activity` (one user) do the same for activity.
 - `/screens/movies/search` is the title autocomplete of the profile form.
-- `/screens/discover` forwards its `genre` and `director` filters to `GET /profiles`
-  in `users`.
 - `/screens/genres` returns the catalog's genres from `movies` (`GET /movies/genres`);
   the profile form offers exactly these, so `movies` must be running to pick genres.
 
@@ -425,9 +420,6 @@ Done:
   Social tab suggests people with your taste and searches by name; you can follow
   people and open anyone's followers and following.
 - Profile CRUD (`/profiles`) in `users`, persisted in `users_db`, owner-only writes.
-- Social discovery: `GET /profiles?genre=&director=` filters profiles by favourite
-  genre or director, exposed as `edge`'s `/screens/discover` (the UI does not use
-  it yet).
 - Follows, follower lists, people suggestions by shared taste and people search
   (`/social` in `users`, `follows` table in `users_db`).
 - `movies` serves title autocomplete (`GET /movies/search`), lookup by id
