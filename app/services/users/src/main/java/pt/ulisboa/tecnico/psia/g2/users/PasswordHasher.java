@@ -10,7 +10,7 @@ public class PasswordHasher {
 
     private static final int BCRYPT_MAX_BYTES = 72;
 
-    @ConfigProperty(name = "users.bcrypt.cost", defaultValue = "12")
+    @ConfigProperty(name = "users.bcrypt.cost")
     int cost;
 
     public String hash(String password) {

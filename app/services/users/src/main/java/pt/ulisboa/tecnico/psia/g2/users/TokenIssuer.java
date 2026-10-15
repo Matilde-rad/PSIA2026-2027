@@ -10,7 +10,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @ApplicationScoped
 public class TokenIssuer {
 
-    @ConfigProperty(name = "smallrye.jwt.new-token.lifespan", defaultValue = "3600")
+    @ConfigProperty(name = "smallrye.jwt.new-token.lifespan")
     long lifespanSeconds;
 
     public record IssuedToken(String token, Instant expiresAt) {
