@@ -136,10 +136,10 @@ account; anyone logged in can read profiles, only the owner can create, change
 or delete theirs (403 otherwise):
 
 ```sh
-curl -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+curl -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"displayName":"Alice","bio":"likes films","favoriteGenres":["Horror"],"favoriteDirectors":["Ridley Scott"],"favoriteMovies":["1214"]}' \
-  http://127.0.0.1:8081/profiles                                             # the caller's own profile
-curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/profiles/$ID   # ID = user.id from login
+  http://127.0.0.1:8081/profiles/$ID                                         # ID = user.id from login
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/profiles/$ID
 ```
 
 `PUT /profiles/{id}` creates the profile on the first save and replaces it

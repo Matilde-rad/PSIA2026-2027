@@ -40,55 +40,17 @@ class ProfileResourceTest {
         return body;
     }
 
-    private static Response create(Account account, Object body) {
+    private static Response save(Account account, Object body) {
         return RestAssured.given().auth().oauth2(account.token()).contentType(ContentType.JSON).body(body)
-                .post("/profiles");
-    }
-
-    @Test
-    void createThenGet() {
-        Account alice = register();
-
-        create(alice, profile("Horror", "Ridley Scott")).then()
-                .statusCode(201)
-                .body("userId", equalTo(alice.id()));
-
-        RestAssured.given().auth().oauth2(alice.token())
-                .get("/profiles/" + alice.id())
-                .then()
-                .statusCode(200)
-                .body("displayName", equalTo("Alice"))
-                .body("favoriteGenres", contains("Horror"))
-                .body("favoriteMovies", contains("1214"));
-    }
-
-    // the id in the body is ignored: a profile always belongs to the caller
-    @Test
-    void createIgnoresTheBodyUserId() {
-        Account alice = register();
-        Account bob = register();
-        Map<String, Object> body = profile("Drama", "Agnes Varda");
-        body.put("userId", bob.id());
-
-        create(alice, body).then().statusCode(201).body("userId", equalTo(alice.id()));
-    }
-
-    @Test
-    void secondCreateIs409() {
-        Account alice = register();
-        create(alice, profile("Horror", "Ridley Scott")).then().statusCode(201);
-
-        create(alice, profile("Horror", "Ridley Scott")).then()
-                .statusCode(409)
-                .body("error", equalTo("conflict"));
+                .put("/profiles/" + account.id());
     }
 
     @Test
     void missingListsBecomeEmpty() {
         Account alice = register();
 
-        create(alice, Map.of("displayName", "Alice")).then()
-                .statusCode(201)
+        save(alice, Map.of("displayName", "Alice")).then()
+                .statusCode(200)
                 .body("favoriteGenres.size()", equalTo(0));
     }
 
@@ -98,7 +60,7 @@ class ProfileResourceTest {
         Map<String, Object> body = profile("Horror", "Ridley Scott");
         body.put("bio", "x".repeat(501));
 
-        create(alice, body).then()
+        save(alice, body).then()
                 .statusCode(400)
                 .body("error", equalTo("validation"))
                 .body("fields.field", hasItem("bio"));
@@ -111,7 +73,7 @@ class ProfileResourceTest {
         Map<String, Object> body = profile("Horror", "Ridley Scott");
         body.put("favoriteMovies", List.of("Alien"));
 
-        create(alice, body).then()
+        save(alice, body).then()
                 .statusCode(400)
                 .body("error", equalTo("validation"))
                 .body("fields.field", hasItem("favoriteMovies"));
@@ -123,7 +85,7 @@ class ProfileResourceTest {
         Map<String, Object> body = profile("Horror", "Ridley Scott");
         body.put("favoriteMovies", List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"));
 
-        create(alice, body).then()
+        save(alice, body).then()
                 .statusCode(400)
                 .body("fields.field", hasItem("favoriteMovies"));
     }
@@ -131,7 +93,7 @@ class ProfileResourceTest {
     @Test
     void ownerUpdatesAndDeletes() {
         Account alice = register();
-        create(alice, profile("Horror", "Ridley Scott")).then().statusCode(201);
+        save(alice, profile("Horror", "Ridley Scott")).then().statusCode(200);
 
         RestAssured.given().auth().oauth2(alice.token()).contentType(ContentType.JSON)
                 .body(profile("Comedy", "Elaine May"))
@@ -174,7 +136,7 @@ class ProfileResourceTest {
     @Test
     void internalProfilesNeedTheSharedKey() {
         Account alice = register();
-        create(alice, profile("Horror", "Ridley Scott")).then().statusCode(201);
+        save(alice, profile("Horror", "Ridley Scott")).then().statusCode(200);
 
         RestAssured.given().header("X-Internal-Key", "test-internal-key")
                 .get("/internal/profiles")
@@ -198,7 +160,7 @@ class ProfileResourceTest {
     void anotherUserCannotUpdateOrDelete() {
         Account alice = register();
         Account bob = register();
-        create(alice, profile("Horror", "Ridley Scott")).then().statusCode(201);
+        save(alice, profile("Horror", "Ridley Scott")).then().statusCode(200);
 
         RestAssured.given().auth().oauth2(bob.token()).contentType(ContentType.JSON)
                 .body(profile("Comedy", "Elaine May"))
