@@ -1,5 +1,6 @@
 import { createContext, useContext, useState } from 'react'
 import { apiFetch, clearSession, loadSession, saveSession } from './api.js'
+import { clearScreens } from './screenCache.js'
 
 const AuthContext = createContext(null)
 
@@ -34,6 +35,8 @@ export function AuthProvider({ children }) {
 
   function logout() {
     clearSession()
+    // the next user on this browser tab must never see these picks or AI requests
+    clearScreens()
     setSession(null)
     setIsNew(false)
   }

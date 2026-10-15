@@ -1,18 +1,26 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '../api.js'
 import MovieCard from '../components/MovieCard.jsx'
 import ResultsToolbar, { PAGE_SIZE, ResultsHeader } from '../components/ResultsToolbar.jsx'
+import { saveScreen, useSavedScreen } from '../screenCache.js'
 
 export default function AskAi() {
-  const [text, setText] = useState('')
+  const saved = useSavedScreen('ask-ai')
+  const [text, setText] = useState(saved?.text ?? '')
   const [asking, setAsking] = useState(false)
-  const [result, setResult] = useState(null)
+  const [result, setResult] = useState(saved?.result ?? null)
   const [error, setError] = useState(null)
-  const submitted = useRef('')
-  const seen = useRef(new Set())
+  const submitted = useRef(saved?.submitted ?? '')
+  const seen = useRef(new Set(saved?.seen))
   const [busy, setBusy] = useState(null)
-  const [exhausted, setExhausted] = useState(false)
+  const [exhausted, setExhausted] = useState(saved?.exhausted ?? false)
   const [moreError, setMoreError] = useState(null)
+
+  // A request still in flight when the tab unmounts is dropped, so the cache holds the typed text
+  // with no results and the tab comes back ready to ask again.
+  useEffect(() => {
+    saveScreen('ask-ai', { text, submitted: submitted.current, result, seen: [...seen.current], exhausted })
+  }, [text, result, exhausted])
 
   async function handleSubmit(e) {
     e.preventDefault()

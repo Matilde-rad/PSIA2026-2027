@@ -4,21 +4,26 @@ import { apiFetch } from '../api.js'
 import { useAuth } from '../auth.jsx'
 import MovieCard, { hueFor } from '../components/MovieCard.jsx'
 import ResultsToolbar, { PAGE_SIZE, ResultsHeader } from '../components/ResultsToolbar.jsx'
+import { saveScreen, useSavedScreen } from '../screenCache.js'
 import { runtime } from '../time.js'
 import { prettyTitle } from '../titles.js'
 
 export default function ForYou() {
   const { user } = useAuth()
-  const [recommendations, setRecommendations] = useState(null)
+  const saved = useSavedScreen('for-you')
+  // an empty list means "fill your profile", so Back from the profile must fetch again
+  const restored = saved?.recommendations.length > 0 ? saved : null
+  const [recommendations, setRecommendations] = useState(restored?.recommendations ?? null)
   const [error, setError] = useState(null)
   const [attempt, setAttempt] = useState(0)
-  const seen = useRef(new Set())
+  const seen = useRef(new Set(restored?.seen))
   const [busy, setBusy] = useState(null)
-  const [exhausted, setExhausted] = useState(false)
+  const [exhausted, setExhausted] = useState(restored?.exhausted ?? false)
   const [moreError, setMoreError] = useState(null)
   const featured = useMemo(() => recommendations?.slice(0, CAROUSEL_SIZE), [recommendations])
 
   useEffect(() => {
+    if (attempt === 0 && restored) return
     let ignore = false
     setRecommendations(null)
     setError(null)
@@ -39,6 +44,10 @@ export default function ForYou() {
       ignore = true
     }
   }, [attempt])
+
+  useEffect(() => {
+    if (recommendations) saveScreen('for-you', { recommendations, seen: [...seen.current], exhausted })
+  }, [recommendations, exhausted])
 
   async function load(mode) {
     setBusy(mode)

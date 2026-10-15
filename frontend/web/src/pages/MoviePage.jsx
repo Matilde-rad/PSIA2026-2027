@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useNavigationType, useParams } from 'react-router-dom'
 import { apiFetch } from '../api.js'
 import { hueFor, Poster } from '../components/MovieCard.jsx'
 import WatchButtons from '../components/WatchButtons.jsx'
@@ -14,6 +14,12 @@ export default function MoviePage() {
   const [bannerFailed, setBannerFailed] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const navigationType = useNavigationType()
+
+  // A movie opened from far down a list would otherwise open scrolled down; Back/Forward leaves it alone.
+  useEffect(() => {
+    if (navigationType !== 'POP') window.scrollTo(0, 0)
+  }, [id])
 
   // A page opened directly (shared link, new tab) has no in-app history, so Back goes Home instead of leaving the site.
   const goBack = () => (location.key === 'default' ? navigate('/') : navigate(-1))

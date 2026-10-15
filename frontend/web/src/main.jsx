@@ -5,6 +5,9 @@ import { AuthProvider } from './auth.jsx'
 import App from './App.jsx'
 import './styles.css'
 
+// Home restores its own scroll after Back; the browser's automatic restore would run before the content is back.
+history.scrollRestoration = 'manual'
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>

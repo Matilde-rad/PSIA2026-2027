@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../api.js'
 import MovieCard from '../components/MovieCard.jsx'
 import ResultsToolbar, { PAGE_SIZE } from '../components/ResultsToolbar.jsx'
+import { saveScreen, useSavedScreen } from '../screenCache.js'
 
 const DEBOUNCE_MS = 300
 // A placeholder and a screen format, not genres; hidden here only, the profile form still lists them.
@@ -17,12 +18,16 @@ function queryKey(text, genres) {
 
 export default function CatalogSearch() {
   const [params, setParams] = useSearchParams()
+  const saved = useSavedScreen('search')
   // BrowserRouter updates the URL in a transition, so a URL-bound input lags; the URL only mirrors this state.
   const [text, setText] = useState(() => params.get('q') ?? '')
   const [genres, setGenres] = useState(() => params.getAll('genre'))
   const [debounced, setDebounced] = useState(text)
-  const [catalogGenres, setCatalogGenres] = useState(null)
-  const [result, setResult] = useState(null)
+  const [catalogGenres, setCatalogGenres] = useState(saved?.genres ?? null)
+  // The URL wins: a shared or edited link never shows another query's cached results.
+  const [result, setResult] = useState(() =>
+    saved?.result?.key === queryKey(params.get('q') ?? '', params.getAll('genre')) ? saved.result : null,
+  )
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(null)
   const [moreError, setMoreError] = useState(null)
@@ -35,6 +40,8 @@ export default function CatalogSearch() {
   }, [text])
 
   useEffect(() => {
+    // restored with the results, so the chips are in the first commit
+    if (Array.isArray(catalogGenres)) return
     let ignore = false
     apiFetch('/screens/genres')
       .then((data) => {
@@ -57,6 +64,11 @@ export default function CatalogSearch() {
       setMoreError(null)
       return
     }
+    if (result?.key === key) {
+      setError(null)
+      setMoreError(null)
+      return
+    }
     let ignore = false
     apiFetch(`/screens/browse?${key}&offset=0`)
       .then((page) => {
@@ -72,6 +84,10 @@ export default function CatalogSearch() {
       ignore = true
     }
   }, [key])
+
+  useEffect(() => {
+    saveScreen('search', { result, genres: Array.isArray(catalogGenres) ? catalogGenres : null })
+  }, [result, catalogGenres])
 
   function mirror(nextText, nextGenres) {
     setParams(
