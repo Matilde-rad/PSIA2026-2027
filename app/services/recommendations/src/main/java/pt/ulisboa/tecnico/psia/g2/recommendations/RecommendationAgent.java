@@ -6,6 +6,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -40,7 +41,7 @@ public class RecommendationAgent {
         long start = System.nanoTime();
         List<TasteProfile> all;
         try {
-            all = users.profiles(internalKey);
+            all = withWatched(users.profiles(internalKey), users.watched(internalKey));
         } catch (RuntimeException e) {
             LOG.warnf("agent run skipped users unavailable error=%s", e.getClass().getSimpleName());
             return;
@@ -52,50 +53,56 @@ public class RecommendationAgent {
             LOG.warnf("agent run skipped movies unavailable error=%s", e.getClass().getSimpleName());
             return;
         }
-        // Users with the same taste get the same picks, so each distinct taste is searched once.
+        // Users with the same taste get the same picks, so each distinct query is searched once.
         // A profile that says nothing about taste is not searched at all.
-        Map<String, TasteProfile> tastes = new LinkedHashMap<>();
+        Map<TasteProfile, SemanticSearch.Query> queries = new LinkedHashMap<>();
         for (TasteProfile profile : all) {
-            String taste = profile.text(titles);
-            if (!taste.isEmpty()) {
-                tastes.putIfAbsent(taste, profile);
+            SemanticSearch.Query query = profile.query(titles);
+            if (!query.isEmpty()) {
+                queries.put(profile, query);
             }
         }
-        Map<String, List<Recommendation>> found = searchEach(tastes);
+        Set<SemanticSearch.Query> distinct = new LinkedHashSet<>(queries.values());
+        Map<SemanticSearch.Query, List<Recommendation>> found = searchEach(distinct);
         int cached = 0;
-        for (TasteProfile profile : all) {
-            String taste = profile.text(titles);
-            if (taste.isEmpty()) {
-                continue;
-            }
-            List<Recommendation> results = found.get(taste);
+        for (Map.Entry<TasteProfile, SemanticSearch.Query> entry : queries.entrySet()) {
+            String userId = entry.getKey().userId();
+            List<Recommendation> results = found.get(entry.getValue());
             if (results == null) {
-                LOG.warnf("agent user=%s kept cache", profile.userId());
+                LOG.warnf("agent user=%s kept cache", userId);
             } else if (!results.isEmpty()) {
-                cache.replace(profile.userId(), results);
+                cache.replace(userId, results);
                 cached++;
             }
         }
-        LOG.infof("agent run users=%d tastes=%d cached=%d kept=%d ms=%d", all.size(), tastes.size(), cached,
+        LOG.infof("agent run users=%d tastes=%d cached=%d kept=%d ms=%d", all.size(), distinct.size(), cached,
                 all.size() - cached, (System.nanoTime() - start) / 1_000_000);
     }
 
-    // One user, right now: called when a profile is saved, so the picks do not wait for the next run.
-    // Throws SemanticSearch.AiUnavailableException when the AI cannot answer; the cache is then kept.
+    // each profile with the movies its user marked as watched
+    static List<TasteProfile> withWatched(List<TasteProfile> profiles, List<UsersClient.Watched> watched) {
+        Map<String, List<UsersClient.Watched>> byUser = watched.stream()
+                .collect(Collectors.groupingBy(UsersClient.Watched::userId));
+        return profiles.stream().map(p -> {
+            List<UsersClient.Watched> mine = byUser.getOrDefault(p.userId(), List.of());
+            return p.withWatched(
+                    mine.stream().filter(UsersClient.Watched::liked).map(UsersClient.Watched::movieId).toList(),
+                    mine.stream().filter(w -> !w.liked()).map(UsersClient.Watched::movieId).toList());
+        }).toList();
+    }
+
+    // One user, right now: called when a profile is saved or a movie is marked, so the picks do not
+    // wait for the next run. Throws SemanticSearch.AiUnavailableException when the AI cannot answer;
+    // the cache is then kept.
     public List<Recommendation> refresh(String userId, TasteProfile profile) {
         if (profile == null) {
             return cache.read(userId);
         }
-        String taste;
-        try {
-            taste = profile.text(movieTitles.of(profile.favoriteMovies()));
-        } catch (RuntimeException e) {
-            throw new SemanticSearch.AiUnavailableException(e);
-        }
-        if (taste.isEmpty()) {
+        SemanticSearch.Query query = query(profile);
+        if (query.isEmpty()) {
             return cache.read(userId);
         }
-        List<Recommendation> results = semantic.search(taste, profile.favoriteMovies()).results();
+        List<Recommendation> results = semantic.recommend(query);
         if (!results.isEmpty()) {
             cache.replace(userId, results);
         }
@@ -107,29 +114,27 @@ public class RecommendationAgent {
         if (profile == null) {
             return List.of();
         }
-        String taste;
+        SemanticSearch.Query query = query(profile);
+        return query.isEmpty() ? List.of() : semantic.recommend(query.excluding(exclude));
+    }
+
+    private SemanticSearch.Query query(TasteProfile profile) {
         try {
-            taste = profile.text(movieTitles.of(profile.favoriteMovies()));
+            return profile.query(movieTitles.of(profile.favoriteMovies()));
         } catch (RuntimeException e) {
             throw new SemanticSearch.AiUnavailableException(e);
         }
-        if (taste.isEmpty()) {
-            return List.of();
-        }
-        Set<String> skip = new LinkedHashSet<>(profile.favoriteMovies());
-        skip.addAll(exclude);
-        return semantic.search(taste, skip).results();
     }
 
-    private Map<String, List<Recommendation>> searchEach(Map<String, TasteProfile> tastes) {
-        Map<String, List<Recommendation>> found = new LinkedHashMap<>();
-        tastes.forEach((taste, profile) -> {
+    private Map<SemanticSearch.Query, List<Recommendation>> searchEach(Set<SemanticSearch.Query> queries) {
+        Map<SemanticSearch.Query, List<Recommendation>> found = new LinkedHashMap<>();
+        for (SemanticSearch.Query query : queries) {
             try {
-                found.put(taste, semantic.search(taste, profile.favoriteMovies()).results());
+                found.put(query, semantic.recommend(query));
             } catch (RuntimeException e) {
                 LOG.warnf("agent search failed error=%s", e.getClass().getSimpleName());
             }
-        });
+        }
         return found;
     }
 }

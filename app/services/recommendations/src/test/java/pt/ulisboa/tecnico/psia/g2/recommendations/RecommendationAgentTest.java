@@ -19,6 +19,7 @@ class RecommendationAgentTest {
 
     static class FakeUsers implements UsersClient {
         List<TasteProfile> rows = List.of();
+        List<Watched> watched = List.of();
         RuntimeException failure;
         String keySent;
 
@@ -30,22 +31,29 @@ class RecommendationAgentTest {
             }
             return rows;
         }
+
+        @Override
+        public List<Watched> watched(String internalKey) {
+            return watched;
+        }
     }
 
     static class FakeSearch extends SemanticSearch {
+        final List<SemanticSearch.Query> queries = new ArrayList<>();
         final List<String> searched = new ArrayList<>();
-        final List<Collection<String>> excluded = new ArrayList<>();
+        final List<Set<String>> excluded = new ArrayList<>();
         final Map<String, List<Recommendation>> results = new HashMap<>();
         final Map<String, RuntimeException> failures = new HashMap<>();
 
         @Override
-        public SearchResponse search(String text, Collection<String> excludeTitles) {
-            searched.add(text);
-            excluded.add(excludeTitles);
-            if (failures.containsKey(text)) {
-                throw failures.get(text);
+        public List<Recommendation> recommend(SemanticSearch.Query query) {
+            queries.add(query);
+            searched.add(query.text());
+            excluded.add(query.exclude());
+            if (failures.containsKey(query.text())) {
+                throw failures.get(query.text());
             }
-            return new SearchResponse(results.get(text));
+            return results.get(query.text());
         }
     }
 
@@ -166,7 +174,45 @@ class RecommendationAgentTest {
         // every profile's favorites are resolved in one lookup
         assertEquals(List.of(List.of("1214", "404")), titles.asked);
         assertEquals(List.of(text, "b"), search.searched);
-        assertEquals(List.of(List.of("1214", "404"), List.of()), search.excluded);
+        assertEquals(List.of(Set.of("1214", "404"), Set.of()), search.excluded);
+    }
+
+    @Test
+    void watchedMoviesSteerTheSearchAndAreNeverRecommended() {
+        users.rows = List.of(taste("1", "a"), taste("2", "a"));
+        users.watched = List.of(new UsersClient.Watched("1", "10", true), new UsersClient.Watched("1", "11", false));
+        search.results.put("a", List.of(r(20)));
+
+        assertDoesNotThrow(agent::refreshAll);
+
+        // same text, but user 1's watched movies make it a different search
+        assertEquals(2, search.queries.size());
+        SemanticSearch.Query first = search.queries.get(0);
+        assertEquals(Set.of("10"), first.liked());
+        assertEquals(Set.of("11"), first.disliked());
+        assertEquals(Set.of("10", "11"), first.exclude());
+        assertTrue(search.queries.get(1).liked().isEmpty());
+    }
+
+    @Test
+    void likedMoviesAloneAreEnoughToSearch() {
+        users.rows = List.of(taste("1", null));
+        users.watched = List.of(new UsersClient.Watched("1", "10", true));
+        search.results.put("", List.of(r(20)));
+
+        assertDoesNotThrow(agent::refreshAll);
+
+        assertEquals(List.of(new FakeCache.Write("1", List.of(r(20)))), cache.writes);
+    }
+
+    @Test
+    void dislikedMoviesAloneAreNotSearched() {
+        users.rows = List.of(taste("1", null));
+        users.watched = List.of(new UsersClient.Watched("1", "10", false));
+
+        assertDoesNotThrow(agent::refreshAll);
+
+        assertTrue(search.searched.isEmpty());
     }
 
     @Test

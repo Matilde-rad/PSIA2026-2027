@@ -36,8 +36,7 @@ public class InternalResource {
         return Profile.listAll();
     }
 
-    // Every movie every user watched, with whether they liked it. Nothing reads it yet: it is
-    // here for the recommendations agent to learn from.
+    // Every movie every user watched, with whether they liked it, for the recommendations agent.
     @GET
     @Path("/watched")
     @PermitAll

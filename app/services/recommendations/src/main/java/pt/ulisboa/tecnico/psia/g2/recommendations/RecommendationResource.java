@@ -1,5 +1,7 @@
 package pt.ulisboa.tecnico.psia.g2.recommendations;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -27,11 +29,14 @@ public class RecommendationResource {
     @Inject
     RecommendationAgent agent;
 
+    // The cached picks in a new order on every visit, so Home does not look frozen between agent runs.
     @GET
     @Path("/users/{userId}")
     @Produces(MediaType.APPLICATION_JSON)
     public List<Recommendation> forUser(@PathParam("userId") String userId) {
-        return cache.read(userId);
+        List<Recommendation> picks = new ArrayList<>(cache.read(userId));
+        Collections.shuffle(picks);
+        return picks;
     }
 
     @POST

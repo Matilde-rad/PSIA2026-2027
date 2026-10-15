@@ -1,9 +1,15 @@
 package pt.ulisboa.tecnico.psia.g2.recommendations;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -16,6 +22,22 @@ public class SemanticSearch {
     public static class AiUnavailableException extends RuntimeException {
         public AiUnavailableException(Throwable cause) {
             super(cause);
+        }
+    }
+
+    // What For you searches from: the profile text, the movies the user liked and disliked, and the
+    // ids never to show (favorites, watched, and on Get more the ones already on screen).
+    public record Query(String text, Set<String> liked, Set<String> disliked, Set<String> exclude) {
+
+        // Nothing says what the user likes. Disliked movies alone only say what to avoid.
+        public boolean isEmpty() {
+            return text.isEmpty() && liked.isEmpty();
+        }
+
+        public Query excluding(Collection<String> more) {
+            Set<String> all = new HashSet<>(exclude);
+            all.addAll(more);
+            return new Query(text, liked, disliked, Set.copyOf(all));
         }
     }
 
@@ -39,6 +61,17 @@ public class SemanticSearch {
     @ConfigProperty(name = "recs.semantic.min-ratings")
     int minRatings;
 
+    @ConfigProperty(name = "recs.recommend.pool")
+    int poolSize;
+
+    @ConfigProperty(name = "recs.recommend.like-weight")
+    double likeWeight;
+
+    @ConfigProperty(name = "recs.recommend.dislike-weight")
+    double dislikeWeight;
+
+    final Random random = new Random();
+
     public SearchResponse search(String text) {
         return search(text, List.of());
     }
@@ -60,6 +93,97 @@ public class SemanticSearch {
                 .map(s -> new Recommendation(s.id(), s.title(), s.posterUrl(), s.bannerUrl()))
                 .toList();
         return new SearchResponse(results);
+    }
+
+    // For you. The text's vector is moved toward the liked movies and away from the disliked ones
+    // (Rocchio relevance feedback), and the picks are drawn at random from the best matches, so the
+    // same profile does not show the same movies every time.
+    public List<Recommendation> recommend(Query query) {
+        if (query.isEmpty()) {
+            return List.of();
+        }
+        try {
+            return runRecommend(query);
+        } catch (RuntimeException e) {
+            throw new AiUnavailableException(e);
+        }
+    }
+
+    private List<Recommendation> runRecommend(Query query) {
+        float[] text = query.text().isEmpty() ? null : ai.embedQuery(new AiClient.EmbedQuery(query.text())).embedding();
+        Map<String, float[]> vectors = vectors(query);
+        float[] vector = feedback(text, of(vectors, query.liked()), of(vectors, query.disliked()), likeWeight,
+                dislikeWeight);
+        if (vector == null) {
+            return List.of();
+        }
+        List<MoviesClient.Similar> near = movies.similar(new MoviesClient.SimilarRequest(vector, candidateCount, minRatings));
+        return sample(rank(without(near, query.exclude()), popularityWeight), poolSize, pickCount, random).stream()
+                .map(s -> new Recommendation(s.id(), s.title(), s.posterUrl(), s.bannerUrl()))
+                .toList();
+    }
+
+    private Map<String, float[]> vectors(Query query) {
+        Set<String> ids = new HashSet<>(query.liked());
+        ids.addAll(query.disliked());
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return movies.vectors(new MoviesClient.LookupRequest(List.copyOf(ids))).stream()
+                .collect(Collectors.toMap(MoviesClient.Vector::id, MoviesClient.Vector::embedding, (a, b) -> a));
+    }
+
+    private static List<float[]> of(Map<String, float[]> vectors, Set<String> ids) {
+        return ids.stream().map(vectors::get).filter(v -> v != null).toList();
+    }
+
+    // text + likeWeight * mean(liked) - dislikeWeight * mean(disliked), each part a unit vector.
+    // null when there is neither text nor a liked movie to start from.
+    static float[] feedback(float[] text, List<float[]> liked, List<float[]> disliked, double likeWeight,
+            double dislikeWeight) {
+        float[] likedMean = mean(liked);
+        if (text == null && likedMean == null) {
+            return null;
+        }
+        float[] query = new float[text != null ? text.length : likedMean.length];
+        add(query, text, 1);
+        add(query, likedMean, likeWeight);
+        add(query, mean(disliked), -dislikeWeight);
+        return query;
+    }
+
+    private static float[] mean(List<float[]> vectors) {
+        if (vectors.isEmpty()) {
+            return null;
+        }
+        float[] sum = new float[vectors.get(0).length];
+        vectors.forEach(v -> add(sum, v, 1));
+        return sum;
+    }
+
+    // adds weight * v / |v| to target
+    private static void add(float[] target, float[] v, double weight) {
+        if (v == null) {
+            return;
+        }
+        double norm = 0;
+        for (float x : v) {
+            norm += x * x;
+        }
+        if (norm == 0) {
+            return;
+        }
+        double scale = weight / Math.sqrt(norm);
+        for (int i = 0; i < target.length; i++) {
+            target[i] += (float) (v[i] * scale);
+        }
+    }
+
+    // count of the best pool, picked at random and in random order
+    static <T> List<T> sample(List<T> ranked, int pool, int count, Random random) {
+        List<T> best = new ArrayList<>(ranked.subList(0, Math.min(pool, ranked.size())));
+        Collections.shuffle(best, random);
+        return List.copyOf(best.subList(0, Math.min(count, best.size())));
     }
 
     static List<MoviesClient.Similar> without(List<MoviesClient.Similar> near, Collection<String> excludeIds) {
