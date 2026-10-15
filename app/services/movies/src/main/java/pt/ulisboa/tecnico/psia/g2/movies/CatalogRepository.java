@@ -41,6 +41,9 @@ public class CatalogRepository {
 
     private static final String IMDB_ID_SQL = "SELECT imdb_id FROM movie WHERE id = ?";
 
+    private static final String VECTORS_SQL =
+            "SELECT id, embedding::text FROM movie WHERE id = ANY(?) AND embedding IS NOT NULL";
+
     static final int MAX_SEARCH_WORDS = 6;
 
     private static final String SIMILAR_SQL = """
@@ -166,6 +169,25 @@ public class CatalogRepository {
         }
     }
 
+    // the embeddings of the given movies; a movie that is unknown or not embedded yet is left out
+    public List<MovieVector> vectors(List<Integer> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(VECTORS_SQL)) {
+            ps.setArray(1, c.createArrayOf("int4", ids.toArray()));
+            List<MovieVector> rows = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    rows.add(new MovieVector(String.valueOf(rs.getInt(1)), parseVector(rs.getString(2))));
+                }
+            }
+            return rows;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Catalog query failed", e);
+        }
+    }
+
     // null when the movie is unknown or MovieLens has no IMDb link for it
     public String imdbId(int id) {
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(IMDB_ID_SQL)) {
@@ -258,6 +280,16 @@ public class CatalogRepository {
             s.append(values[i]);
         }
         return s.append(']').toString();
+    }
+
+    // pgvector's text form, "[0.1,-0.2,...]"
+    static float[] parseVector(String text) {
+        String[] parts = text.substring(1, text.length() - 1).split(",");
+        float[] values = new float[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            values[i] = Float.parseFloat(parts[i]);
+        }
+        return values;
     }
 
     private SimilarMovie similarMovie(ResultSet rs) throws SQLException {

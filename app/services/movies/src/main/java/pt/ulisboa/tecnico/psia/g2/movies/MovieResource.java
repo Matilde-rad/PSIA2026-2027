@@ -95,6 +95,19 @@ public class MovieResource {
         return catalog.byIds(request.ids().stream().limit(MAX_LOOKUP).map(MovieResource::id).filter(Objects::nonNull).toList());
     }
 
+    // the embeddings of the given movies, for recommendations to steer its search toward liked movies
+    // and away from disliked ones
+    @POST
+    @Path("/vectors")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public List<MovieVector> vectors(LookupRequest request) {
+        if (request == null || request.ids() == null) {
+            return List.of();
+        }
+        return catalog.vectors(request.ids().stream().limit(MAX_LOOKUP).map(MovieResource::id).filter(Objects::nonNull).toList());
+    }
+
     private static Integer id(String text) {
         try {
             return text == null ? null : Integer.valueOf(text.strip());
