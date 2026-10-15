@@ -1,14 +1,13 @@
 import { useRef, useState } from 'react'
 import { apiFetch } from '../api.js'
 import MovieCard from '../components/MovieCard.jsx'
-import ResultsToolbar, { PAGE_SIZE } from '../components/ResultsToolbar.jsx'
+import ResultsToolbar, { PAGE_SIZE, ResultsHeader } from '../components/ResultsToolbar.jsx'
 
-export default function Search() {
+export default function AskAi() {
   const [text, setText] = useState('')
   const [asking, setAsking] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
-  // the submitted text and every movie id shown for it, so Get more and Refresh only bring unseen ones
   const submitted = useRef('')
   const seen = useRef(new Set())
   const [busy, setBusy] = useState(null)
@@ -75,6 +74,14 @@ export default function Search() {
       </form>
       {asking && <p className="state-text">Finding movies…</p>}
       {error && <SearchError error={error} />}
+      {result && result.results.length > 0 && !asking && (
+        <ResultsHeader
+          title={`Results for “${submitted.current}”`}
+          busy={busy}
+          refreshLabel="↻ New results"
+          onRefresh={() => load('refresh')}
+        />
+      )}
       {result && <Results result={result} />}
       {result && result.results.length > 0 && !asking && (
         <ResultsToolbar
@@ -82,7 +89,6 @@ export default function Search() {
           exhausted={exhausted}
           error={moreError}
           endText="No more results for this request."
-          onRefresh={() => load('refresh')}
           onMore={() => load('more')}
         />
       )}

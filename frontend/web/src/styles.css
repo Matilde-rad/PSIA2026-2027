@@ -618,9 +618,9 @@ img {
 
 .results-toolbar {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 24px;
 }
 
@@ -770,6 +770,18 @@ img {
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 16px;
+}
+
+/* A long Ask AI request wraps instead of pushing the button off screen. */
+.section-heading {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.section-subtitle {
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--text-muted);
 }
 
 .profile-about {

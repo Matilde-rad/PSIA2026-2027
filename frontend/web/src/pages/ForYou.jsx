@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../api.js'
 import { useAuth } from '../auth.jsx'
 import MovieCard, { hueFor } from '../components/MovieCard.jsx'
-import ResultsToolbar, { PAGE_SIZE } from '../components/ResultsToolbar.jsx'
+import ResultsToolbar, { PAGE_SIZE, ResultsHeader } from '../components/ResultsToolbar.jsx'
 import { runtime } from '../time.js'
 import { prettyTitle } from '../titles.js'
 
@@ -12,11 +12,11 @@ export default function ForYou() {
   const [recommendations, setRecommendations] = useState(null)
   const [error, setError] = useState(null)
   const [attempt, setAttempt] = useState(0)
-  // every movie id shown since the load, so Get more and Refresh only bring unseen ones
   const seen = useRef(new Set())
   const [busy, setBusy] = useState(null)
   const [exhausted, setExhausted] = useState(false)
   const [moreError, setMoreError] = useState(null)
+  const featured = useMemo(() => recommendations?.slice(0, CAROUSEL_SIZE), [recommendations])
 
   useEffect(() => {
     let ignore = false
@@ -84,7 +84,14 @@ export default function ForYou() {
 
   return (
     <>
-      <Carousel key={recommendations[0].movieId} items={recommendations} />
+      <Carousel key={recommendations[0].movieId} items={featured} />
+      <ResultsHeader
+        title="Picked for you"
+        subtitle="Based on your profile and the movies you've rated"
+        busy={busy}
+        refreshLabel="↻ New picks"
+        onRefresh={() => load('refresh')}
+      />
       <div className="movie-grid">
         {recommendations.map((rec) => (
           <MovieCard key={rec.movieId} movieId={rec.movieId} title={rec.title} posterUrl={rec.posterUrl} />
@@ -95,7 +102,6 @@ export default function ForYou() {
         exhausted={exhausted}
         error={moreError}
         endText="No more recommendations for your profile."
-        onRefresh={() => load('refresh')}
         onMore={() => load('more')}
       />
     </>
@@ -103,6 +109,7 @@ export default function ForYou() {
 }
 
 const SLIDE_MS = 6000
+const CAROUSEL_SIZE = 6
 
 function Carousel({ items }) {
   const [index, setIndex] = useState(0)
