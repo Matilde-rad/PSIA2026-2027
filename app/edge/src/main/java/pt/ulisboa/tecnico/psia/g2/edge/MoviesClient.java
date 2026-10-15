@@ -27,6 +27,11 @@ public interface MoviesClient {
     @Path("/search")
     Uni<List<CatalogMovie>> search(@QueryParam("q") String q, @QueryParam("limit") int limit);
 
+    @GET
+    @Path("/browse")
+    Uni<List<CatalogMovie>> browse(@QueryParam("q") String q, @QueryParam("genre") List<String> genres,
+            @QueryParam("offset") int offset, @QueryParam("limit") int limit);
+
     @POST
     @Path("/lookup")
     @Consumes(MediaType.APPLICATION_JSON)

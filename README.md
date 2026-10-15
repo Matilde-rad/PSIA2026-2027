@@ -227,6 +227,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/social
 curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8080/screens/social/search?q=ali'
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID/followers   # also /following
 curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8080/screens/movies/search?q=par'
+curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8080/screens/browse?q=matrix&genre=Sci-Fi&genre=Comedy&offset=12'
 curl -X PUT -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/me/following/$OTHER      # DELETE unfollows
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/movie/1214
 curl -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
@@ -256,6 +257,9 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID
 - `/screens/search` also takes `exclude` (movie ids already shown) and
   `POST /screens/home/more` with `{"exclude": [...]}` returns the next For you picks
   from the caller's profile; neither writes the recommendation cache.
+- `/screens/browse` is Home's Search tab, with no AI. It returns 12 catalog movies
+  whose title has every typed word and that have every chosen `genre`, from `offset`.
+  With text, titles that start with it come first; otherwise the most rated come first.
 - A profile screen calls `users` three times (account, profile, follow counts)
   and, on your own screen, `recommendations`, all concurrently via
   `Uni.combine()`, then `movies` once for the favorite movies. It needs `movies`
