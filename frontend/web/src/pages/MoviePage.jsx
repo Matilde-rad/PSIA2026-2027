@@ -1,16 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../api.js'
 import { hueFor, Poster } from '../components/MovieCard.jsx'
 import WatchButtons from '../components/WatchButtons.jsx'
 import { prettyTitle } from '../titles.js'
 import { runtime } from '../time.js'
-
-const STATUS_TEXT = {
-  to_watch: 'On your watchlist. Watched it?',
-  liked: 'You watched this and liked it.',
-  disliked: "You watched this and didn't like it.",
-}
 
 export default function MoviePage() {
   const { id } = useParams()
@@ -18,6 +12,11 @@ export default function MoviePage() {
   const [error, setError] = useState(null)
   const [attempt, setAttempt] = useState(0)
   const [bannerFailed, setBannerFailed] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  // A page opened directly (shared link, new tab) has no in-app history, so Back goes Home instead of leaving the site.
+  const goBack = () => (location.key === 'default' ? navigate('/') : navigate(-1))
 
   useEffect(() => {
     let ignore = false
@@ -65,6 +64,9 @@ export default function MoviePage() {
 
   return (
     <>
+      <button type="button" className="btn btn-ghost btn-sm movie-back" onClick={goBack}>
+        ← Back
+      </button>
       <section className="movie-hero" style={{ '--poster-hue': hueFor(movie.title) }}>
         {movie.bannerUrl && !bannerFailed && (
           <img className="movie-hero-bg" src={movie.bannerUrl} alt="" onError={() => setBannerFailed(true)} />
@@ -91,11 +93,6 @@ export default function MoviePage() {
                 status={movie.status}
                 onChange={(status) => setMovie({ ...movie, status })}
               />
-              {movie.status && (
-                <p className="movie-status">
-                  {STATUS_TEXT[movie.status]} <Link to="/watchlist">Open your watchlist</Link>
-                </p>
-              )}
             </div>
           </div>
         </div>

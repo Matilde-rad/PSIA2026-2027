@@ -1049,6 +1049,10 @@ a.banner {
   text-decoration: none;
 }
 
+.movie-back {
+  margin-bottom: 12px;
+}
+
 .movie-hero {
   position: relative;
   border-radius: var(--radius-lg);
@@ -1107,16 +1111,6 @@ a.banner {
   display: grid;
   gap: 8px;
   margin-top: 8px;
-}
-
-.movie-status {
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-.movie-status a {
-  color: var(--text);
-  text-underline-offset: 3px;
 }
 
 .movie-about {
