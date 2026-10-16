@@ -30,7 +30,6 @@ public record TasteProfile(String userId, String bio, List<String> favoriteGenre
         return new TasteProfile(userId, bio, favoriteGenres, favoriteDirectors, favoriteMovies, liked, disliked);
     }
 
-    // Watched movies steer the search vector instead of the text: "not like X" in a text lands next to X.
     public String text(Map<String, String> titles) {
         List<String> parts = new ArrayList<>();
         if (!favoriteGenres.isEmpty()) {

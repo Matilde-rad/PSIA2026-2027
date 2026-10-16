@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -31,7 +32,7 @@ public class SemanticSearch {
 
     public record Query(String text, Set<String> liked, Set<String> disliked, Set<String> exclude) {
 
-        // Disliked movies alone only say what to avoid.
+
         public boolean isEmpty() {
             return text.isEmpty() && liked.isEmpty();
         }
@@ -42,7 +43,6 @@ public class SemanticSearch {
             return new Query(text, liked, disliked, Set.copyOf(all));
         }
 
-        // Not hashCode: 32 bits collide, and a collision would freeze a user's picks.
         public String fingerprint() {
             StringBuilder canonical = new StringBuilder();
             token(canonical, text);
@@ -59,7 +59,6 @@ public class SemanticSearch {
             }
         }
 
-        // length-prefixed, so no text or id can be mistaken for a separator
         private static void token(StringBuilder out, String value) {
             out.append(value.length()).append(':').append(value);
         }
@@ -96,6 +95,10 @@ public class SemanticSearch {
 
     final Random random = new Random();
 
+    private static final int EMBEDDING_CACHE_SIZE = 1000;
+
+    private final Map<String, float[]> embeddingCache = new ConcurrentHashMap<>();
+
     public SearchResponse search(String text) {
         return search(text, List.of());
     }
@@ -110,7 +113,7 @@ public class SemanticSearch {
     }
 
     private SearchResponse run(String text, Collection<String> excludeIds) {
-        float[] query = ai.embedQuery(new AiClient.EmbedQuery(text)).embedding();
+        float[] query = embed(text);
         List<MoviesClient.Similar> near = movies.similar(new MoviesClient.SimilarRequest(query, candidateCount, minRatings));
         List<Recommendation> results = rank(without(near, excludeIds), popularityWeight).stream()
                 .limit(pickCount)
@@ -139,7 +142,7 @@ public class SemanticSearch {
     }
 
     private List<Recommendation> runPool(Query query) {
-        float[] text = query.text().isEmpty() ? null : ai.embedQuery(new AiClient.EmbedQuery(query.text())).embedding();
+        float[] text = query.text().isEmpty() ? null : embed(query.text());
         Map<String, float[]> vectors = vectors(query);
         float[] vector = feedback(text, of(vectors, query.liked()), of(vectors, query.disliked()), likeWeight,
                 dislikeWeight);
@@ -151,6 +154,18 @@ public class SemanticSearch {
                 .limit(poolSize)
                 .map(s -> new Recommendation(s.id(), s.title(), s.posterUrl(), s.bannerUrl()))
                 .toList();
+    }
+
+    private float[] embed(String text) {
+        float[] vector = embeddingCache.get(text);
+        if (vector == null) {
+            vector = ai.embedQuery(new AiClient.EmbedQuery(text)).embedding();
+            if (embeddingCache.size() >= EMBEDDING_CACHE_SIZE) {
+                embeddingCache.clear();
+            }
+            embeddingCache.put(text, vector);
+        }
+        return vector;
     }
 
     private Map<String, float[]> vectors(Query query) {

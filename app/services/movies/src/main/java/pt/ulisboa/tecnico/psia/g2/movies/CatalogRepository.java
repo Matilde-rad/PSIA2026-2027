@@ -74,14 +74,11 @@ public class CatalogRepository {
         }
     }
 
-    // A bulk load drops the HNSW index first: inserting the 87k vectors into it one by one took
-    // 9.5 min, loading them without it about 15 s, and building it afterwards about 80 s.
+
     public void dropEmbeddingIndex() {
         execute(DROP_INDEX_SQL);
     }
 
-    // No parallel workers: they build the graph in /dev/shm, which is 64 MB in the Postgres
-    // container, and the build fails. The 87k vectors alone take about 360 MB of that memory.
     public void createEmbeddingIndex() {
         execute("SET LOCAL maintenance_work_mem = '1GB'", "SET LOCAL max_parallel_maintenance_workers = 0",
                 CREATE_INDEX_SQL);
@@ -112,7 +109,6 @@ public class CatalogRepository {
         return browse(text, List.of(), 0, limit);
     }
 
-    // The order ends with the id, so offset pages never overlap or skip.
     public List<MovieSummary> browse(String text, List<String> genres, int offset, int limit) {
         List<String> words = words(text);
         if (words.isEmpty() && genres.isEmpty()) {
@@ -148,7 +144,6 @@ public class CatalogRepository {
         }
     }
 
-    // Letters and digits only, so a word can go into a regular expression as it is.
     static List<String> words(String text) {
         if (text == null) {
             return List.of();
@@ -225,8 +220,6 @@ public class CatalogRepository {
         return rows;
     }
 
-    // hnsw.ef_search (default 40) caps the rows the index returns, so it is raised to the limit for this
-    // transaction; the iterative scan then keeps walking until enough movies pass the rating filter.
     public List<SimilarMovie> similar(float[] embedding, int limit, int minRatings) {
         String q = vector(embedding);
         try (Connection c = dataSource.getConnection()) {

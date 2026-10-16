@@ -76,6 +76,7 @@ public class RecommendationAgent {
         }
         Set<SemanticSearch.Query> distinct = new LinkedHashSet<>(queries.values());
         Map<SemanticSearch.Query, List<Recommendation>> found = searchEach(distinct);
+
         int cached = 0;
         for (Map.Entry<TasteProfile, SemanticSearch.Query> entry : queries.entrySet()) {
             String userId = entry.getKey().userId();
@@ -95,6 +96,7 @@ public class RecommendationAgent {
     static List<TasteProfile> withWatched(List<TasteProfile> profiles, List<UsersClient.Watched> watched) {
         Map<String, List<UsersClient.Watched>> byUser = watched.stream()
                 .collect(Collectors.groupingBy(UsersClient.Watched::userId));
+
         return profiles.stream().map(p -> {
             List<UsersClient.Watched> mine = byUser.getOrDefault(p.userId(), List.of());
             return p.withWatched(
@@ -123,9 +125,8 @@ public class RecommendationAgent {
         return semantic.picks(pool);
     }
 
-    // A pool cached before fingerprints existed (NULL) never matches.
     private boolean unchanged(String userId, String fingerprint) {
-        RecommendationCache.Stamp stamp = cache.stamp(userId);
+        RecommendationCache.Stamp stamp = cache .stamp(userId);
         return stamp != null && fingerprint.equals(stamp.fingerprint())
                 && stamp.updatedAt().isAfter(Instant.now().minus(maxAge));
     }
