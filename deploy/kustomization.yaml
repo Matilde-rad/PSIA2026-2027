@@ -21,19 +21,19 @@ resources:
 images:
   - name: users
     newName: 10.164.0.4:5000/users
-    newTag: latest
+    newTag: 8ddac7a6
   - name: movies
     newName: 10.164.0.4:5000/movies
-    newTag: latest
+    newTag: 8ddac7a6
   - name: recommendations
     newName: 10.164.0.4:5000/recommendations
-    newTag: latest
+    newTag: 8ddac7a6
   - name: ai
     newName: 10.164.0.4:5000/ai
-    newTag: latest
+    newTag: 8ddac7a6
   - name: edge
     newName: 10.164.0.4:5000/edge
-    newTag: latest
+    newTag: 8ddac7a6
   - name: web
     newName: 10.164.0.4:5000/web
-    newTag: latest
+    newTag: 8ddac7a6
