@@ -484,6 +484,8 @@ push ─▶ test ──────────────────▶ packa
   internal registry.
 - Each service is tested on its own, and its tested `target/quarkus-app` is handed
   to `package`, so the images hold exactly what passed (`deploy/images.md`).
+- Pipelines run on `master`, on merge requests, and from *Run pipeline* in GitLab.
+  A push to any other branch runs nothing until it has a merge request.
 - `deploy` only runs on `master`. It commits the new tag with `[skip ci]`, so the bot
   commit starts no pipeline. If pipelines finish out of order, it does not replace a
   newer tag with an older one.
