@@ -20,7 +20,10 @@ namespace at `http://<worker1 public IP>`.
 - `4-workers-join.yml`: joins the workers.
 - `5-build-images.yml`: on the build VM, the registry, the build and the image pushes.
 - `6-deploy.yml`: the app's Secrets and manifests (`../../deploy`) on the cluster.
-- `site.yml`: runs the six steps in order.
+- `7-monitoring.yml`: Prometheus and Grafana.
+- `8-ci-runner.yml`: a GitLab Runner on the build VM, for `.gitlab-ci.yml`.
+- `9-argocd.yml`: Argo CD, which deploys `deploy/` from the repo.
+- `site.yml`: runs the steps in order.
 - `../secrets/kubeconfig`: cluster-admin access for `kubectl`, written by step 3. Git-ignored.
 - `../secrets/app/`: the app's JWT keys, database passwords and internal key, made by step 6. Git-ignored.
 
@@ -140,6 +143,49 @@ Compared with lab4:
 - The inventory is generated from Terraform, not edited by hand.
 - Images are built on our own build VM and kept in our own registry, instead of a
   public one.
+
+## CI/CD (steps 8 and 9)
+
+Step 8 installs a GitLab Runner on the build VM and step 9 installs Argo CD in the
+cluster. Together with `../../.gitlab-ci.yml` they test, package and deploy every
+commit; the pipeline itself is described under *CI/CD* in the root README.
+
+Both need a token from GitLab first, saved in `../secrets/` (git-ignored):
+
+1. **Runner token.** In the GitLab project: *Settings > CI/CD > Runners > New project
+   runner*, tag `g2-build`, leave *Run untagged jobs* unchecked, then *Create runner*.
+   Copy the `glrt-...` token into `../secrets/gitlab-runner-token`.
+2. **Deploy token** (Argo CD reads the repo). *Settings > Repository > Deploy tokens >
+   Add token*, scope `read_repository`. Save it as one line `username:token` in
+   `../secrets/gitlab-deploy-token`.
+3. **Push token** (the pipeline's `deploy` job commits the new tag). *Settings > Access
+   tokens > Add new token*, role `Maintainer`, scope `write_repository`. Add it under
+   *Settings > CI/CD > Variables* as `GITOPS_TOKEN`, masked and protected (`deploy`
+   only runs on `master`, which GitLab protects by default). If project access
+   tokens are unavailable, a personal access token with `write_repository` works the
+   same way.
+
+```sh
+ansible-playbook 8-ci-runner.yml   # or `just runner` on the host
+ansible-playbook 9-argocd.yml      # or `just argocd` on the host
+```
+
+- **Runner.** gitlab-runner v18.4.0 with the shell executor, as the `gitlab-runner`
+  user in the `docker` group, so jobs use the Docker, JDK, Maven and Node from step 5
+  and the Maven cache in its home survives between jobs. Registering sets
+  `REGISTRY=<build internal IP>:5000` for every job. The registry needs no login,
+  since only the VPC reaches it. Re-running the playbook does not re-register; to
+  register again, delete `/etc/gitlab-runner/config.toml` on the build VM first.
+- **Argo CD** v3.1.0 in the `argocd` namespace, UI over plain HTTP at
+  `http://<worker1 public IP>:30880`, user `admin`, password saved to
+  `../secrets/argocd-admin-password`. The Application `g2` follows `deploy/` on
+  `master`, with automatic sync, pruning and self-heal.
+- Argo CD only manages what is in `deploy/kustomization.yaml`. The Secrets, the node
+  label and local-path-provisioner still come from step 6, so step 6 runs once before
+  step 9. After step 9, deploy by pushing to `master`: a `just deploy` would be undone
+  by self-heal at the next sync.
+- `deploy/kustomization.yaml` holds `latest` until the first pipeline on `master`, so
+  Argo CD starts from the images step 5 pushed.
 
 ## When the master's public IP changes
 

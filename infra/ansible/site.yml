@@ -6,3 +6,5 @@
 - ansible.builtin.import_playbook: 5-build-images.yml
 - ansible.builtin.import_playbook: 6-deploy.yml
 - ansible.builtin.import_playbook: 7-monitoring.yml
+- ansible.builtin.import_playbook: 8-ci-runner.yml
+- ansible.builtin.import_playbook: 9-argocd.yml

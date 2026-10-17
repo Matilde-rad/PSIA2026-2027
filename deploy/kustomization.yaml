@@ -16,23 +16,24 @@ resources:
   - apps/edge/edge.yaml
   - apps/web/web.yaml
 
-# placeholders: 6-deploy.yml fills in the registry and tag at deploy time
+# What Argo CD deploys. CI's deploy job writes the build VM's registry and the commit's
+# tag here on every master pipeline; 6-deploy.yml overrides both in a temporary copy.
 images:
   - name: users
-    newName: registry:5000/users
+    newName: 10.164.0.4:5000/users
     newTag: latest
   - name: movies
-    newName: registry:5000/movies
+    newName: 10.164.0.4:5000/movies
     newTag: latest
   - name: recommendations
-    newName: registry:5000/recommendations
+    newName: 10.164.0.4:5000/recommendations
     newTag: latest
   - name: ai
-    newName: registry:5000/ai
+    newName: 10.164.0.4:5000/ai
     newTag: latest
   - name: edge
-    newName: registry:5000/edge
+    newName: 10.164.0.4:5000/edge
     newTag: latest
   - name: web
-    newName: registry:5000/web
+    newName: 10.164.0.4:5000/web
     newTag: latest

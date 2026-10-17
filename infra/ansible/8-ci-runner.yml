@@ -1,0 +1,73 @@
+---
+# Step 8: a GitLab Runner on the build VM, for .gitlab-ci.yml.
+# The shell executor uses the Docker, JDK 21, Maven and Node that step 5 installed,
+# and reaches the registry over the internal network.
+# https://docs.gitlab.com/runner/install/linux-manually/
+
+- name: Install the GitLab Runner
+  hosts: build
+  become: true
+  gather_facts: false
+
+  vars:
+    runner_version: v18.4.0
+    runner_url: https://gitlab-runner-downloads.s3.amazonaws.com/{{ runner_version }}/binaries/gitlab-runner-linux-amd64
+    gitlab_url: https://gitlab.rnl.tecnico.ulisboa.pt
+    # made in GitLab: Settings > CI/CD > Runners > New project runner (tag g2-build)
+    token_file: "{{ playbook_dir | dirname }}/secrets/gitlab-runner-token"
+    registry: "{{ internal_ip }}:5000"
+
+  tasks:
+    - name: Read the runner token
+      ansible.builtin.set_fact:
+        runner_token: "{{ lookup('ansible.builtin.file', token_file) | trim }}"
+      no_log: true
+
+    - name: Download gitlab-runner
+      ansible.builtin.get_url:
+        url: "{{ runner_url }}"
+        dest: /usr/local/bin/gitlab-runner
+        mode: "0755"
+
+    # in the docker group so jobs can build images and Dev Services can start Postgres
+    - name: Create the gitlab-runner user
+      ansible.builtin.user:
+        name: gitlab-runner
+        shell: /bin/bash
+        groups: docker
+        append: true
+
+    # Ubuntu's .bash_logout clears the console, which fails every shell-executor job
+    - name: Remove .bash_logout
+      ansible.builtin.file:
+        path: /home/gitlab-runner/.bash_logout
+        state: absent
+
+    - name: Install the service
+      ansible.builtin.command: >
+        gitlab-runner install --user gitlab-runner
+        --working-directory /home/gitlab-runner
+      args:
+        creates: /etc/systemd/system/gitlab-runner.service
+
+    - name: Register the runner
+      ansible.builtin.command: >
+        gitlab-runner register --non-interactive
+        --url {{ gitlab_url }}
+        --token {{ runner_token }}
+        --executor shell
+        --name g2-build
+        --env REGISTRY={{ registry }}
+      args:
+        creates: /etc/gitlab-runner/config.toml
+      no_log: true
+
+    - name: Start the service
+      ansible.builtin.systemd:
+        name: gitlab-runner
+        state: started
+        enabled: true
+
+    - name: Show the runner
+      ansible.builtin.debug:
+        msg: "Runner g2-build registered at {{ gitlab_url }}, pushing to {{ registry }}"

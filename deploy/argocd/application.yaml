@@ -1,0 +1,21 @@
+# Argo CD keeps the g2 namespace in sync with deploy/ on master. CI writes each new
+# image tag into deploy/kustomization.yaml, so a commit to master is a deploy.
+# Applied by infra/ansible/9-argocd.yml; not part of deploy/kustomization.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: g2
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://gitlab.rnl.tecnico.ulisboa.pt/psia/groups26/g2.git
+    targetRevision: master
+    path: deploy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: g2
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

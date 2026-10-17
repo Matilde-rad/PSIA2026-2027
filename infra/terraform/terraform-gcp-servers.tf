@@ -83,7 +83,8 @@ resource "google_compute_instance" "build" {
   }
 
   network_interface {
-    network = "default"
+    network    = "default"
+    network_ip = var.GCP_BUILD_INTERNAL_IP
     access_config {}
   }
 

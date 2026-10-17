@@ -30,6 +30,11 @@ variable "GCP_ZONE" {
   default = "europe-west4-b"
 }
 
+variable "GCP_BUILD_INTERNAL_IP" {
+  type    = string
+  default = "10.164.0.4"
+}
+
 # Ubuntu 24.04 LTS image family. A family resolves to its newest image when the
 # VM is created. Other images can be found at:
 # https://cloud.google.com/compute/docs/images/os-details

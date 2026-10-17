@@ -1,0 +1,112 @@
+# CI/CD: test every service, package the images, and on the default branch hand the
+# new tag to Argo CD by committing it to deploy/kustomization.yaml (GitOps).
+# Runs on our own runner on the build VM (infra/ansible/8-ci-runner.yml), which has
+# Docker, JDK 21, Maven and Node, reaches the registry and sets REGISTRY.
+# https://docs.gitlab.com/ci/yaml/
+
+stages:
+  - test
+  - package
+  - deploy
+
+default:
+  tags:
+    - g2-build
+
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+
+# Each Quarkus module on its own. The tests need Docker (Dev Services starts Postgres).
+# The packaged quarkus-app goes on to the package stage, so the images hold exactly
+# what was tested.
+test:service:
+  stage: test
+  interruptible: true
+  parallel:
+    matrix:
+      - MODULE:
+          - services/users
+          - services/movies
+          - services/recommendations
+          - services/ai
+          - edge
+  script:
+    - mvn -B -f app/pom.xml -pl "$MODULE" verify
+  artifacts:
+    when: always
+    expire_in: 1 day
+    paths:
+      - app/$MODULE/target/quarkus-app/
+    reports:
+      junit: app/$MODULE/target/surefire-reports/TEST-*.xml
+
+test:web:
+  stage: test
+  interruptible: true
+  script:
+    - cd frontend/web
+    - npm ci
+    - npm run build
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - frontend/web/dist/
+
+# Same Dockerfiles as 5-build-images.yml, tagged with the commit.
+package:
+  stage: package
+  interruptible: true
+  needs:
+    - test:service
+    - test:web
+  script:
+    - |
+      set -eu
+      tag="$CI_COMMIT_SHORT_SHA"
+      for pair in users:services/users movies:services/movies \
+                  recommendations:services/recommendations ai:services/ai edge:edge; do
+        name="${pair%%:*}"
+        docker build --build-arg MODULE="${pair#*:}" -t "$REGISTRY/$name:$tag" app
+        docker push "$REGISTRY/$name:$tag"
+      done
+      docker build -t "$REGISTRY/web:$tag" frontend/web
+      docker push "$REGISTRY/web:$tag"
+
+# Argo CD watches deploy/ on the default branch, so writing the tag there deploys it.
+# GITOPS_TOKEN is a project access token with write_repository (masked CI/CD variable).
+deploy:
+  stage: deploy
+  needs:
+    - package
+  resource_group: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  variables:
+    GIT_DEPTH: 0
+  script:
+    - |
+      set -eu
+      git fetch origin "$CI_DEFAULT_BRANCH"
+      git checkout -B "$CI_DEFAULT_BRANCH" "origin/$CI_DEFAULT_BRANCH"
+      deployed=$(sed -n 's/^ *newTag: //p' deploy/kustomization.yaml | head -n 1)
+      # a newer commit may already be deployed when pipelines finish out of order
+      if [ "$deployed" != "$CI_COMMIT_SHORT_SHA" ] \
+         && git merge-base --is-ancestor "$CI_COMMIT_SHA" "$deployed" 2>/dev/null; then
+        echo "$deployed is newer than $CI_COMMIT_SHORT_SHA, nothing to deploy"
+        exit 0
+      fi
+      sed -i -E \
+        -e "s#newName: \S+:5000/#newName: $REGISTRY/#" \
+        -e "s#newTag: \S+#newTag: $CI_COMMIT_SHORT_SHA#" \
+        deploy/kustomization.yaml
+      if git diff --quiet; then
+        echo "$CI_COMMIT_SHORT_SHA is already deployed"
+        exit 0
+      fi
+      git -c user.name="g2 CI" -c user.email="g2-ci@noreply.gitlab" \
+        commit -am "chore(deploy): $CI_COMMIT_SHORT_SHA [skip ci]"
+      git push "https://gitlab-ci-token:${GITOPS_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" \
+        "HEAD:$CI_DEFAULT_BRANCH"
+  environment:
+    name: production

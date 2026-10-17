@@ -36,9 +36,9 @@ cannot drift apart.
   services and reuses the local dependency cache. Building inside Docker
   would run Maven five times, once per image.
 - **The images hold the tested artifacts.** The jars that go into the images
-  are the same ones the tests ran against. In CI the pipeline runs
-  `mvn package` with the tests once, then builds and pushes the images from
-  that output.
+  are the same ones the tests ran against. In CI each service's test job runs
+  `mvn verify`, and the `package` job builds and pushes the images from that
+  output (`.gitlab-ci.yml`).
 
 The cost is that the machine building the images needs JDK 21+, Maven and
 Node, not only Docker. Anyone working on the project already has these to run

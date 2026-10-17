@@ -1,0 +1,106 @@
+---
+# Step 9: Argo CD, which deploys deploy/ from the GitLab repo (GitOps).
+# Run after step 6, which makes the node label, StorageClass and Secrets the app needs.
+# https://argo-cd.readthedocs.io/en/stable/getting_started/
+
+# Runs in the mgmt container (kubectl + kubeconfig).
+- name: Install Argo CD
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    repo_src: "{{ playbook_dir | dirname | dirname }}"
+    argocd_version: v3.1.0
+    repo_url: https://gitlab.rnl.tecnico.ulisboa.pt/psia/groups26/g2.git
+    # a GitLab deploy token with read_repository, as one line "username:token"
+    deploy_token_file: "{{ repo_src }}/infra/secrets/gitlab-deploy-token"
+    password_file: "{{ repo_src }}/infra/secrets/argocd-admin-password"
+    node_port: 30880
+
+  tasks:
+    - name: Read the deploy token
+      ansible.builtin.set_fact:
+        deploy_token: "{{ lookup('ansible.builtin.file', deploy_token_file) | trim }}"
+      no_log: true
+
+    - name: Create the namespace
+      ansible.builtin.shell: |
+        set -o pipefail
+        kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+      args:
+        executable: /bin/bash
+      register: namespace
+      changed_when: "'created' in namespace.stdout"
+
+    # server-side: the CRDs are too big for the last-applied annotation
+    - name: Install or upgrade Argo CD
+      ansible.builtin.command: >
+        kubectl apply -n argocd --server-side --force-conflicts -f
+        https://raw.githubusercontent.com/argoproj/argo-cd/{{ argocd_version }}/manifests/install.yaml
+      register: install
+      changed_when: "'serverside-applied' in install.stdout and 'unchanged' not in install.stdout"
+
+    # plain HTTP on a NodePort, like Grafana; no TLS certificate to manage
+    - name: Serve the UI over plain HTTP
+      ansible.builtin.command: >
+        kubectl -n argocd patch configmap argocd-cmd-params-cm --type merge
+        -p '{"data":{"server.insecure":"true"}}'
+      register: insecure
+      changed_when: "'no change' not in insecure.stdout"
+
+    - name: Restart argocd-server to pick that up
+      ansible.builtin.command: kubectl -n argocd rollout restart deployment argocd-server
+      when: insecure is changed
+
+    - name: Expose the UI on a NodePort
+      ansible.builtin.command: >
+        kubectl -n argocd patch service argocd-server --type merge
+        -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"targetPort":8080,"nodePort":{{ node_port }}}]}}'
+      register: service
+      changed_when: "'no change' not in service.stdout"
+
+    - name: Wait for Argo CD
+      ansible.builtin.command: kubectl -n argocd rollout status deployment/argocd-server --timeout 5m
+      changed_when: false
+
+    # create --dry-run | apply = create or update
+    - name: Give Argo CD read access to the repo
+      ansible.builtin.shell: |
+        set -o pipefail
+        kubectl -n argocd create secret generic g2-repo \
+          --from-literal=type=git \
+          --from-literal=url={{ repo_url }} \
+          --from-literal=username="${TOKEN%%:*}" \
+          --from-literal=password="${TOKEN#*:}" \
+          --dry-run=client -o yaml \
+          | kubectl label --local -f - argocd.argoproj.io/secret-type=repository -o yaml \
+          | kubectl apply -f -
+      args:
+        executable: /bin/bash
+      environment:
+        TOKEN: "{{ deploy_token }}"
+      register: repo_secret
+      changed_when: "'created' in repo_secret.stdout or 'configured' in repo_secret.stdout"
+      no_log: true
+
+    - name: Create the g2 Application
+      ansible.builtin.command: kubectl apply -f {{ repo_src }}/deploy/argocd/application.yaml
+      register: app
+      changed_when: "'created' in app.stdout or 'configured' in app.stdout"
+
+    - name: Save the admin password
+      ansible.builtin.shell: |
+        set -o pipefail
+        umask 077
+        kubectl -n argocd get secret argocd-initial-admin-secret \
+          -o jsonpath='{.data.password}' | base64 -d > {{ password_file }}
+      args:
+        executable: /bin/bash
+        creates: "{{ password_file }}"
+
+    - name: Show where Argo CD is
+      ansible.builtin.debug:
+        msg: >-
+          Argo CD is at http://{{ hostvars['worker1'].ansible_host }}:{{ node_port }}, user admin,
+          password in infra/secrets/argocd-admin-password

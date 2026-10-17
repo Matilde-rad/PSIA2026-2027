@@ -17,9 +17,14 @@ Everything lives in the `g2` namespace, one replica each, mirroring `compose.yam
 | `web` | Deployment | `apps/web/web.yaml` | nginx on port 80 of worker1 |
 
 `kustomization.yaml` lists the files, puts them in `g2`, and maps each image name
-(`image: users`) to `<registry>/<name>:<tag>`. The registry and tag in the file are
-placeholders: `6-deploy.yml` fills in the build VM's registry and the git short SHA
-in a temporary copy and applies that, so the file in git never changes on a deploy.
+(`image: users`) to `<registry>/<name>:<tag>`. The registry and tag in git are what
+Argo CD deploys: the CI pipeline's `deploy` job writes the build VM's registry and
+the commit's short SHA there on every pipeline on `master` (see *CI/CD* in the root
+README). `6-deploy.yml` instead fills in the registry and the checked-out SHA in a
+temporary copy and applies that, for deploying by hand before Argo CD is installed.
+
+`argocd/application.yaml` is the Argo CD Application that syncs this directory. It is
+not in `kustomization.yaml`; `infra/ansible/9-argocd.yml` applies it.
 
 ## Choices
 

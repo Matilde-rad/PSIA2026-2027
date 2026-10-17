@@ -464,7 +464,34 @@ Not started:
   an upstream failure propagates straight to the caller.
 - Terraform + Ansible cluster provisioning, and the app's Kubernetes manifests.
 - The throughput/latency study.
-- GitLab CI + Argo CD.
+
+## CI/CD
+
+GitLab CI tests and packages every commit; Argo CD deploys `master` (GitOps).
+
+```
+push ─▶ test ──────────────────▶ package ───────────────▶ deploy (master only)
+        test:service ×5            build 6 images,           write the tag into
+        (mvn verify, Postgres      tag = commit SHA,         deploy/kustomization.yaml,
+         via Dev Services)         push to the registry      commit [skip ci], push
+        test:web (vite build)      on the build VM                  │
+                                                                    ▼
+                                         Argo CD sees the commit, syncs deploy/ to g2
+```
+
+- `.gitlab-ci.yml` runs on our own runner on the build VM (`infra/ansible/8-ci-runner.yml`).
+  It needs Docker for the tests and is the only machine that can push to the
+  internal registry.
+- Each service is tested on its own, and its tested `target/quarkus-app` is handed
+  to `package`, so the images hold exactly what passed (`deploy/images.md`).
+- `deploy` only runs on `master`. It commits the new tag with `[skip ci]`, so the bot
+  commit starts no pipeline. If pipelines finish out of order, it does not replace a
+  newer tag with an older one.
+- Argo CD (`infra/ansible/9-argocd.yml`) watches `deploy/` on `master` with automatic
+  sync and self-heal: git is what runs. UI at `http://<worker1 public IP>:30880`.
+- Rolling back is a revert of the bot commit, or of the change itself.
+
+Setup (tokens, playbooks): *CI/CD (steps 8 and 9)* in `infra/ansible/README.md`.
 
 ## Setup instructions
 

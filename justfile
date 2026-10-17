@@ -42,3 +42,11 @@ images:
 # deploy the app with the images of the current commit
 deploy:
     docker exec -w /g2/infra/ansible g2-mgmt ansible-playbook 6-deploy.yml
+
+# GitLab Runner on the build VM (needs infra/secrets/gitlab-runner-token)
+runner:
+    docker exec -w /g2/infra/ansible g2-mgmt ansible-playbook 8-ci-runner.yml
+
+# Argo CD, which then deploys master (needs infra/secrets/gitlab-deploy-token)
+argocd:
+    docker exec -w /g2/infra/ansible g2-mgmt ansible-playbook 9-argocd.yml
