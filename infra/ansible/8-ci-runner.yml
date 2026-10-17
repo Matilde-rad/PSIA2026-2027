@@ -50,6 +50,13 @@
       args:
         creates: /etc/systemd/system/gitlab-runner.service
 
+    # install writes an empty config.toml, so look for a [[runners]] entry instead
+    - name: Look for a registered runner
+      ansible.builtin.command: grep -q '^\[\[runners\]\]' /etc/gitlab-runner/config.toml
+      register: registered
+      changed_when: false
+      failed_when: false
+
     - name: Register the runner
       ansible.builtin.command: >
         gitlab-runner register --non-interactive
@@ -58,8 +65,7 @@
         --executor shell
         --name g2-build
         --env REGISTRY={{ registry }}
-      args:
-        creates: /etc/gitlab-runner/config.toml
+      when: registered.rc != 0
       no_log: true
 
     - name: Start the service
