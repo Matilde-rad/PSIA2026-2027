@@ -2,30 +2,32 @@
 
 PSIA 2026/27 project, group 2.
 
-> **Status:** registration, login and the web UI run locally, and so does the AI
-> and recommendations slice (`ai`, `movies`, `recommendations`; see *AI and
-> recommendations slice: run locally*). Profiles, follows and social discovery work
-> end to end; the deployment is not built yet. See *Current state* below.
-
 Users register, create a profile describing their interests, and ask the
-platform's AI for movie recommendations matching that profile. Users can browse
-other users' profiles. A background agent proactively generates and caches
+platform's AI for movie recommendations matching that profile. They follow other
+users, browse their profiles and activity, and keep a watchlist of movies to watch,
+liked and disliked. A background agent proactively generates and caches
 recommendations so they are ready at login.
 
 ## Structure
 
 ```
 app/                Maven reactor (Java 21, Quarkus 3.39.4)
-  services/users/     accounts, login, profiles          → users_db
-  services/movies/    movie catalog                      → movies_db
-  services/recommendations/  AI recommendations + cache  → recs_db
+  services/users/     accounts, login, profiles, follows, watchlist  → users_db
+  services/movies/    movie catalog and movie vectors (pgvector)     → movies_db
+  services/recommendations/  AI recommendations + agent + cache      → recs_db
   services/ai/        wraps the Ollama embedding model (no database)
-  edge/               aggregates services for the UI (no database)
-frontend/web/       web UI (React + Vite), talks only to edge
+  edge/               backend-for-frontend for the UI (no database)
+  contracts/          JSON fixtures shared by users and edge tests
+  keys/               dev JWT key script (keys land in keys/dev/, git-ignored)
+frontend/web/       web UI (React + Vite, served by nginx), talks only to edge
+data/embeddings/    precomputed movie vectors (Git LFS, 1.2 GB)
 scripts/            demo data seeding (just seed)
-infra/terraform/    VMs for the cluster                       (empty)
-infra/ansible/      installs software/configs onto those VMs  (empty)
-deploy/             Kubernetes manifests, monitoring          (Ollama sizing note only)
+compose.yaml        the whole stack on one machine (just up)
+infra/terraform/    GCP VMs for the cluster and the build VM
+infra/ansible/      Kubernetes (kubeadm), registry, deploy, monitoring, CI runner, Argo CD
+deploy/             Kubernetes manifests (kustomize), Argo CD app, Grafana dashboards
+.gitlab-ci.yml      CI/CD pipeline: test, package, deploy
+justfile            shortcuts for the commands below
 ```
 
 Each microservice owns a dedicated database instance. `edge` is
@@ -42,7 +44,7 @@ mvn clean install                     # whole reactor
 mvn -pl services/users clean install  # one module on its own
 ```
 
-The five modules are independent no shared module, so no `-am` needed.
+The five modules are independent (no shared module), so no `-am` is needed.
 
 ## Running tests
 
@@ -108,12 +110,12 @@ cd app/edge                     && mvn quarkus:dev   # :8080
 For the AI slice's prerequisites, start order and checks, see *AI and
 recommendations slice: run locally* below.
 
-Only `%dev.quarkus.http.port` differs the packaged/container port is 8080
+Only `%dev.quarkus.http.port` differs; the packaged/container port is 8080
 everywhere.
 
-> A Docker container on this machine may already publish `*:8080`, in which case
-> `http://localhost:8080` resolves to it over IPv6 while Quarkus binds
-> `127.0.0.1:8080`. Use `http://127.0.0.1:8080`.
+> If a Docker container already publishes `*:8080`, `http://localhost:8080` may
+> resolve to it over IPv6 while Quarkus binds `127.0.0.1:8080`. The examples
+> therefore use `http://127.0.0.1`.
 
 For `users`, register, log in to get a token, then call a protected endpoint with it
 (run `./app/keys/gen-dev-keys.sh` first, see *Auth keys (users)*):
@@ -181,8 +183,8 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/activity/users/$OTH
 - There is one row per user and movie, so an activity is the latest state of that
   pair: a movie that goes from `to_watch` to `liked` shows once, as liked.
 - `GET /internal/watched` (same shared key as `/internal/profiles`, below) returns
-  every watched movie with `userId`, `movieId`, `liked` and `watchedAt`. Nothing
-  reads it yet: it is there for the recommendations agent to learn from.
+  every watched movie with `userId`, `movieId`, `liked` and `watchedAt`. The
+  recommendations agent reads it to learn from likes and dislikes.
 
 `GET /internal/profiles` returns every profile to other services. It takes no
 user token; the caller sends the shared key in `X-Internal-Key` instead
@@ -217,6 +219,7 @@ curl -X POST -H 'Content-Type: application/json' \
 TOKEN=<the token from the login response>
 ID=<user.id from the login response>
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/me
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/home
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/screens/profile/$ID
 curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"text":"a horror movie from the 80s"}' http://127.0.0.1:8080/screens/search
@@ -290,34 +293,32 @@ All five services expose `/q/health` and Prometheus metrics at `/q/metrics`
 ## AI and recommendations slice: run locally
 
 This starts `ai`, `movies` and `recommendations` in dev mode against a local
-Ollama. `users` and `edge` are not needed for the checks below. Tested on macOS
-(Apple M4, 16 GB).
+Ollama. `users` and `edge` are not needed for the checks below. The timings
+quoted are from an Apple M4 with 16 GB.
 
 ### Prerequisites
 
-- JDK 21 or newer (tested with OpenJDK 25.0.2).
-- Maven 3.9 (tested with 3.9.15); the repo has no Maven wrapper.
-- A running Docker runtime (Docker Desktop; tested with 28.1.1), checked with
-  `docker info`. `movies` and `recommendations` get their Postgres from Quarkus
-  Dev Services.
-- Ollama, tested with 0.40.0. `brew install ollama`
-- Git LFS (`brew install git-lfs`, then `git lfs install` once), tested with
-  3.8.0. The precomputed movie vectors are a 1.2 GB LFS file; without LFS the
-  clone holds only a pointer and the search finds nothing.
+- JDK 21 or newer.
+- Maven 3.9; the repo has no Maven wrapper.
+- A running Docker runtime, checked with `docker info`. `movies` and
+  `recommendations` get their Postgres from Quarkus Dev Services.
+- Ollama (https://ollama.com/download).
+- Git LFS (from your package manager, then `git lfs install` once). The
+  precomputed movie vectors are a 1.2 GB LFS file; without LFS the clone holds
+  only a pointer and the search finds nothing.
 - Network on first start: Maven dependencies, the `pgvector/pgvector:pg18` image,
   the 239 MB MovieLens zip and the 639 MB embedding model.
 
 ### 1. Ollama, the model and the vectors
 
 ```sh
-brew install ollama                                # macOS; or the app from https://ollama.com/download
 ollama serve                                       # own terminal; skip if the Ollama app already runs
 ollama pull qwen3-embedding:0.6b                   # 639 MB, once
 curl -s http://127.0.0.1:11434/api/tags            # must list qwen3-embedding:0.6b
 git lfs pull                                       # data/embeddings/*.csv, if the clone has only the pointer
 ```
 
-> Run Ollama natively. In Docker on macOS it gets no GPU and runs several times
+> On macOS, run Ollama natively: in Docker it gets no GPU and runs several times
 > slower.
 
 ### 2. Start the services
@@ -340,8 +341,11 @@ cd app/services/recommendations && mvn quarkus:dev   # :8083, start last
 > visit. A user whose taste has not changed since their pool was cached is not
 > searched again until the pool is 24 hours old (`recs.agent.max-age`), and the
 > run log counts them as `unchanged`. Favorite movies are ids in the profile;
-> the agent gets their titles from `movies` in one lookup and leaves those
-> movies out of the user's picks. Without `users` or `movies` a run logs
+> the agent gets their titles from `movies` in one lookup. It also reads the
+> watched movies (`GET /internal/watched`): the search moves towards the
+> vectors of liked movies and away from disliked ones
+> (`recs.recommend.like-weight`, `dislike-weight`). Favorite and watched movies
+> are left out of the user's picks. Without `users` or `movies` a run logs
 > `agent run skipped ... unavailable` and keeps the cache.
 
 > On its first start, `movies` downloads MovieLens `ml-32m` (239 MB, 87,585
@@ -351,7 +355,7 @@ cd app/services/recommendations && mvn quarkus:dev   # :8083, start last
 >
 > Then, in the background, it loads one vector per movie from
 > `data/embeddings/movielens_qwen3_embedding_0.6b.csv` and builds the HNSW
-> index, about 1.5 min on an M4. `curl -s http://127.0.0.1:8082/movies/embeddings`
+> index, about 1.5 min. `curl -s http://127.0.0.1:8082/movies/embeddings`
 > shows the count (87,585 when done). Searches made before that find fewer or no
 > movies.
 
@@ -410,60 +414,14 @@ for one user at once; `edge` calls it after a profile save.
 
 Running Ollama in a cluster: see [deploy/ollama.md](deploy/ollama.md).
 
-## Current state
+## Monitoring
 
-Done:
-
-- Maven reactor with five Quarkus modules, building and running.
-- `edge` is the UI's backend for register, login, me and the profile screen: it
-  verifies the JWT, forwards the caller's token, and on the caller's own screen calls
-  `users` and `recommendations` concurrently.
-- Contract fixtures in `app/contracts` catch field drift between `users` and `edge`.
-- `users`: registration and login (RS256 JWT), `GET /users/me`, every other
-  endpoint denied without a valid token (deny-by-default).
-- Web UI in `frontend/web` (React + Vite): register, login, logout, a welcome
-  page after registering that asks for the profile, and the profile page with
-  real data and editing, all through `edge`. Home's For you tab shows the cached
-  picks; its Search tab asks the AI (Ask AI) and shows 12 movies with posters.
-  Favorite movies are picked with title autocomplete and shown as posters. The
-  Social tab suggests people with your taste and searches by name; you can follow
-  people and open anyone's followers and following.
-- Profile CRUD (`/profiles`) in `users`, persisted in `users_db`, owner-only writes.
-- Follows, follower lists, people suggestions by shared taste and people search
-  (`/social` in `users`, `follows` table in `users_db`).
-- `movies` serves title autocomplete (`GET /movies/search`), lookup by id
-  (`POST /movies/lookup`) and the genre list (`GET /movies/genres`).
-- Movie pages: `GET /movies/{id}` with synopsis, running time, cast, directors and
-  IMDb rating from Stremio Cinemeta.
-- Watchlist (`/watchlist` in `users`): to watch, then liked or disliked. The Feed
-  tab shows what followed people did, a profile its owner's recent activity.
-  Watched movies and verdicts are exposed at `GET /internal/watched`; the
-  recommendations agent does not use them yet.
-- `ai` wraps Ollama: `POST /embed/query` embeds a request with
-  `qwen3-embedding:0.6b`.
-- `movies` seeds MovieLens `ml-32m` into `movies_db`, loads the precomputed
-  movie vectors into pgvector and serves `POST /movies/similar` (the nearest
-  movies to a vector). Every row carries poster and banner image URLs.
-- `recommendations` runs the live search
-  (`POST /recommendations/users/{id}/search`) and serves the cached picks
-  (`GET /recommendations/users/{id}`) from `recs_db`.
-- The background agent fills that cache from the users' profiles every 10
-  minutes, and a profile save that changes the taste refreshes its owner's
-  picks at once.
-- Monitoring: Prometheus and Grafana (kube-prometheus-stack) in the `monitoring`
-  namespace, installed by `infra/ansible/7-monitoring.yml`. A PodMonitor scrapes the
-  five services; the *Plain Sight / Services* and *Plain Sight / Load Test*
-  dashboards live in `deploy/monitoring/dashboards/` and are loaded on every deploy.
-  Grafana is at `http://<worker1 public IP>:30300`.
-
-Not started:
-
-- Authentication on `recommendations`, `movies` and `ai`: they trust any caller,
-  so they must not be reachable from outside the cluster.
-- Resilience on the `edge` clients. No retry, timeout or circuit breaker —
-  an upstream failure propagates straight to the caller.
-- Terraform + Ansible cluster provisioning, and the app's Kubernetes manifests.
-- The throughput/latency study.
+Prometheus and Grafana (kube-prometheus-stack) run in the `monitoring` namespace,
+installed by `infra/ansible/7-monitoring.yml`. A PodMonitor scrapes `/q/metrics` of
+the five services. The *Plain Sight / Services* and *Plain Sight / Load Test*
+dashboards live in `deploy/monitoring/dashboards/` and are loaded on every run of
+the playbook. Grafana is at `http://<worker1 public IP>:30300`, user `admin`, with
+the password in `infra/secrets/grafana-admin-password`.
 
 ## CI/CD
 
@@ -529,7 +487,51 @@ demo users through edge with profiles, follows and watchlist entries, all with p
 `demo1234`; `just seed http://127.0.0.1:8080` targets edge in dev mode. All their
 activity has the time the script ran. Local stacks only.
 
-TODO — required by the spec: the Kubernetes deployment instructions.
+### Deploy to Kubernetes (GCP)
+
+The cluster is self-hosted: four VMs (`master`, `worker1` .. `worker3`) with
+kubeadm, plus a `build` VM that builds the images and holds the registry. All
+tools (Terraform, Ansible, gcloud, kubectl) run in a management container, so the
+host only needs Docker, `just` and `ssh-keygen`.
+
+1. **VMs.** Follow the one-time setup in
+   [infra/terraform/README.md](infra/terraform/README.md) (GCP project, service
+   account key in `infra/secrets/gcp-key.json`, `just keys`, project ID), then:
+
+   ```sh
+   just mgmt-start && just mgmt          # shell in the management container, repo at /g2
+   cd infra/terraform && terraform init && terraform apply
+   ```
+
+2. **GitLab tokens.** Create the runner, deploy and push tokens described in
+   *CI/CD (steps 8 and 9)* of [infra/ansible/README.md](infra/ansible/README.md).
+
+3. **Cluster, images, app, monitoring and CI/CD.** Still in the container:
+
+   ```sh
+   cd /g2/infra/ansible
+   python3 inventory.py                  # inventory from the Terraform outputs
+   ansible-playbook site.yml             # playbooks 1-9 in order
+   ```
+
+   `site.yml` prepares the nodes, installs Kubernetes, builds and pushes the
+   images, deploys the app, installs Prometheus and Grafana, the GitLab Runner and
+   Argo CD. Each playbook can also be run on its own (see
+   [infra/ansible/README.md](infra/ansible/README.md)).
+
+The app is then at `http://<worker1 public IP>`. On the first deploy `movies`
+seeds its database for several minutes; `kubectl -n g2 get pods -w` shows when
+everything is `Ready`. What runs and why is in [deploy/README.md](deploy/README.md).
+From then on every push to `master` is tested, packaged and deployed by Argo CD
+(see *CI/CD* above).
+
+Only `web` (port 80 of worker1) is reachable from outside the cluster, besides the
+Argo CD and Grafana UIs. `movies`, `recommendations`, `ai` and Ollama have no
+authentication of their own and are ClusterIP Services only; `users` checks the JWT
+on every request and the shared internal key on `/internal/*`.
+
+Run `terraform destroy` inside the container when done, so the VMs stop using
+credits.
 
 For the AI and recommendations slice in dev mode, see
 *AI and recommendations slice: run locally* above.
