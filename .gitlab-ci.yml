@@ -13,7 +13,13 @@ default:
   tags:
     - g2-build
 
+# Pipelines for master, merge requests and the Run pipeline button; plain pushes to
+# other branches run nothing.
 workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "web"
   auto_cancel:
     on_new_commit: interruptible
 
