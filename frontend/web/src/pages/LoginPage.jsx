@@ -43,7 +43,7 @@ export default function LoginPage() {
           <span>Plain</span>Sight
         </span>
         <h1 className="auth-title">Welcome back</h1>
-        <p className="auth-subtitle">Log in to see what to watch next.</p>
+        <p className="auth-subtitle"> This is a CI/CD test.</p>
         {params.get('expired') === '1' && (
           <p className="notice">Your session expired, please log in again.</p>
         )}
